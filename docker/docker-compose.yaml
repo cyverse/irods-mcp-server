@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  irods-mcp-server:
+    image: cyverse/irods-mcp-server:latest
+    ports:
+      - "8080:8080"
+    restart: always
+    environment:
+      - IRODS_MCP_SVR_REMOTE=true
+      - IRODS_MCP_SVR_SERVICE_URL=http://:8080
+      - IRODS_MCP_SVR_BACKGROUND=false
+      - IRODS_MCP_SVR_DEBUG=true
+      - IRODS_MCP_SVR_LOG_PATH=/var/log/irods-mcp-server.log

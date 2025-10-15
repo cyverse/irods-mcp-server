@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: irods-mcp-server-deployment
+  namespace: mcp-server
+  labels:
+    app: irods-mcp-server
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: irods-mcp-server
+  template:
+    metadata:
+      labels:
+        app: irods-mcp-server
+    spec:
+      containers:
+      - name: irods-mcp-server-container
+        image: cyverse/irods-mcp-server:v0.1.0
+        ports:
+        - containerPort: 80
+        env:
+        - name: IRODS_MCP_SVR_REMOTE
+          value: "true"
+        - name: IRODS_MCP_SVR_SERVICE_URL
+          value: "http://:80"
+        - name: IRODS_MCP_SVR_BACKGROUND
+          value: "false"
+        - name: IRODS_MCP_SVR_DEBUG
+          value: "true"
+        - name: IRODS_MCP_SVR_LOG_PATH
+          value: "/data/irods-mcp-server.log"
+        volumeMounts:
+        - name: log-volume
+          mountPath: /data
+      volumes:
+      - name: log-volume
+        hostPath:
+          path: /mcp-server-logs
+          type: DirectoryOrCreate

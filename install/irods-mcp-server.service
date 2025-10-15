@@ -1,0 +1,15 @@
+[Unit]
+Description=iRODS MCP Server
+After=network-online.target nss-lookup.target
+
+[Service]
+Type=forking
+KillMode=process
+
+ExecStart=/usr/bin/irods-mcp-server -c /etc/irods-mcp-server/config.yaml
+Restart=on-failure
+
+User=irodsmcp
+
+[Install]
+WantedBy=multi-user.target

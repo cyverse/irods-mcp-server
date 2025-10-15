@@ -1,0 +1,5 @@
+remote: true
+service_url: http://:8080
+background: false
+debug: true
+log_path: ./irods-mcp-server.log
