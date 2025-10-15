@@ -19,11 +19,13 @@ const (
 
 type ReadFile struct {
 	mcpServer *IRODSMCPServer
+	config    *common.Config
 }
 
 func NewReadFile(svr *IRODSMCPServer) ToolAPI {
 	return &ReadFile{
 		mcpServer: svr,
+		config:    svr.GetConfig(),
 	}
 }
 
@@ -59,8 +61,8 @@ func (t *ReadFile) GetHandler() server.ToolHandlerFunc {
 }
 
 func (t *ReadFile) GetAccessiblePaths() []string {
-	homePath := irods_common.GetHomePath()
-	sharedPath := irods_common.GetSharedPath()
+	homePath := irods_common.GetHomePath(t.config)
+	sharedPath := irods_common.GetSharedPath(t.config)
 
 	return []string{
 		homePath + "/*",
@@ -94,7 +96,7 @@ func (t *ReadFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*m
 		return nil, xerrors.Errorf("failed to create a irods fs client: %w", err)
 	}
 
-	irodsPath := irods_common.MakeIRODSPath(fs, inputPath)
+	irodsPath := irods_common.MakeIRODSPath(t.config, inputPath)
 
 	inputLength := int(inputLengthFloat)
 	if inputLength < int(irods_common.MinReadLength) {
@@ -130,7 +132,7 @@ func (t *ReadFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*m
 
 func (t *ReadFile) readFile(fs *irodsclient_fs.FileSystem, sourceEntry *irodsclient_fs.Entry, readLength int64) ([]mcp.Content, error) {
 	resourceURI := irods_common.MakeResourceURI(sourceEntry.Path)
-	webdavURI := irods_common.MakeWebdavURL(sourceEntry.Path)
+	webdavURI := irods_common.MakeWebdavURL(t.config, sourceEntry.Path)
 
 	if sourceEntry.IsDir() {
 		// For directories, return a resource reference instead

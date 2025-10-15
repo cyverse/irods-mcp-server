@@ -20,11 +20,13 @@ const (
 
 type SearchFiles struct {
 	mcpServer *IRODSMCPServer
+	config    *common.Config
 }
 
 func NewSearchFiles(svr *IRODSMCPServer) ToolAPI {
 	return &SearchFiles{
 		mcpServer: svr,
+		config:    svr.GetConfig(),
 	}
 }
 
@@ -55,8 +57,8 @@ func (t *SearchFiles) GetHandler() server.ToolHandlerFunc {
 }
 
 func (t *SearchFiles) GetAccessiblePaths() []string {
-	homePath := irods_common.GetHomePath()
-	sharedPath := irods_common.GetSharedPath()
+	homePath := irods_common.GetHomePath(t.config)
+	sharedPath := irods_common.GetSharedPath(t.config)
 
 	return []string{
 		homePath + "/*",
@@ -84,7 +86,7 @@ func (t *SearchFiles) Handler(ctx context.Context, request mcp.CallToolRequest) 
 		return nil, xerrors.Errorf("failed to create a irods fs client: %w", err)
 	}
 
-	irodsPath := irods_common.MakeIRODSPath(fs, inputPath)
+	irodsPath := irods_common.MakeIRODSPath(t.config, inputPath)
 
 	// check permission
 	// check first wildcard location
@@ -131,7 +133,7 @@ func (t *SearchFiles) search(fs *irodsclient_fs.FileSystem, searchPath string) (
 		entryStruct := model.EntryWithAccess{
 			Entry:       dirEntry,
 			ResourceURI: irods_common.MakeResourceURI(dirEntry.Path),
-			WebDAVURI:   irods_common.MakeWebdavURL(dirEntry.Path),
+			WebDAVURI:   irods_common.MakeWebdavURL(t.config, dirEntry.Path),
 		}
 
 		outputEntries = append(outputEntries, entryStruct)
@@ -141,7 +143,7 @@ func (t *SearchFiles) search(fs *irodsclient_fs.FileSystem, searchPath string) (
 		entryStruct := model.EntryWithAccess{
 			Entry:       fileEntry,
 			ResourceURI: irods_common.MakeResourceURI(fileEntry.Path),
-			WebDAVURI:   irods_common.MakeWebdavURL(fileEntry.Path),
+			WebDAVURI:   irods_common.MakeWebdavURL(t.config, fileEntry.Path),
 		}
 
 		outputEntries = append(outputEntries, entryStruct)

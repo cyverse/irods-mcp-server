@@ -357,7 +357,7 @@ func run(config *common.Config) error {
 	)
 
 	// Initialize the iRODS service
-	_, err = irods.NewIRODSMCPServer(svr)
+	_, err = irods.NewIRODSMCPServer(svr, config)
 	if err != nil {
 		return xerrors.Errorf("failed to initialize irods service: %w", err)
 	}

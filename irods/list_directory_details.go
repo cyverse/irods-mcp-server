@@ -20,11 +20,13 @@ const (
 
 type ListDirectoryDetails struct {
 	mcpServer *IRODSMCPServer
+	config    *common.Config
 }
 
 func NewListDirectoryDetails(svr *IRODSMCPServer) ToolAPI {
 	return &ListDirectoryDetails{
 		mcpServer: svr,
+		config:    svr.GetConfig(),
 	}
 }
 
@@ -55,8 +57,8 @@ func (t *ListDirectoryDetails) GetHandler() server.ToolHandlerFunc {
 }
 
 func (t *ListDirectoryDetails) GetAccessiblePaths() []string {
-	homePath := irods_common.GetHomePath()
-	sharedPath := irods_common.GetSharedPath()
+	homePath := irods_common.GetHomePath(t.config)
+	sharedPath := irods_common.GetSharedPath(t.config)
 
 	return []string{
 		homePath + "/*",
@@ -84,7 +86,7 @@ func (t *ListDirectoryDetails) Handler(ctx context.Context, request mcp.CallTool
 		return nil, xerrors.Errorf("failed to create a irods fs client: %w", err)
 	}
 
-	irodsPath := irods_common.MakeIRODSPath(fs, inputPath)
+	irodsPath := irods_common.MakeIRODSPath(t.config, inputPath)
 
 	// check permission
 	permissionMgr := t.mcpServer.GetPermissionManager()
@@ -148,7 +150,7 @@ func (t *ListDirectoryDetails) listCollection(fs *irodsclient_fs.FileSystem, sou
 		entryWithAccessEnt := model.EntryWithAccess{
 			Entry:       dirEntry,
 			ResourceURI: irods_common.MakeResourceURI(dirEntry.Path),
-			WebDAVURI:   irods_common.MakeWebdavURL(dirEntry.Path),
+			WebDAVURI:   irods_common.MakeWebdavURL(t.config, dirEntry.Path),
 			Accesses:    entryAccesses,
 		}
 
@@ -158,7 +160,7 @@ func (t *ListDirectoryDetails) listCollection(fs *irodsclient_fs.FileSystem, sou
 	listDirectoryOutput := model.ListDirectoryOutput{
 		Directory:            sourceEntry,
 		DirectoryResourceURI: irods_common.MakeResourceURI(sourceEntry.Path),
-		DirectoryWebDAVURI:   irods_common.MakeWebdavURL(sourceEntry.Path),
+		DirectoryWebDAVURI:   irods_common.MakeWebdavURL(t.config, sourceEntry.Path),
 		DirectoryEntries:     outputEntries,
 	}
 

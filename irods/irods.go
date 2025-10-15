@@ -9,6 +9,7 @@ import (
 )
 
 type IRODSMCPServer struct {
+	config            *common.Config
 	mcpServer         *server.MCPServer
 	irodsfsClientPool *irods_common.IRODSFSClientPool
 	permission        *permission.APIPermissionManager
@@ -16,8 +17,9 @@ type IRODSMCPServer struct {
 	tools             []ToolAPI
 }
 
-func NewIRODSMCPServer(svr *server.MCPServer) (*IRODSMCPServer, error) {
+func NewIRODSMCPServer(svr *server.MCPServer, config *common.Config) (*IRODSMCPServer, error) {
 	s := &IRODSMCPServer{
+		config:            config,
 		mcpServer:         svr,
 		irodsfsClientPool: irods_common.NewIRODSFSClientPool(),
 		permission:        permission.NewAPIPermissionManager(),
@@ -38,12 +40,16 @@ func NewIRODSMCPServer(svr *server.MCPServer) (*IRODSMCPServer, error) {
 	return s, nil
 }
 
+func (svr *IRODSMCPServer) GetConfig() *common.Config {
+	return svr.config
+}
+
 func (svr *IRODSMCPServer) GetIRODSFSClientPool() *irods_common.IRODSFSClientPool {
 	return svr.irodsfsClientPool
 }
 
 func (svr *IRODSMCPServer) GetIRODSFSClientFromAuthValue(authValue *common.AuthValue) (*irodsclient_fs.FileSystem, error) {
-	account := irods_common.GetEmptyIRODSAccount()
+	account := irods_common.GetEmptyIRODSAccount(svr.config)
 	account.ClientUser = authValue.Username
 	account.Password = authValue.Password
 

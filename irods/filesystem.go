@@ -24,11 +24,13 @@ const (
 
 type Filesystem struct {
 	mcpServer *IRODSMCPServer
+	config    *common.Config
 }
 
 func NewFilesystem(svr *IRODSMCPServer) ResourceAPI {
 	return &Filesystem{
 		mcpServer: svr,
+		config:    svr.GetConfig(),
 	}
 }
 
@@ -61,8 +63,8 @@ func (r *Filesystem) GetHandler() server.ResourceHandlerFunc {
 }
 
 func (r *Filesystem) GetAccessiblePaths() []string {
-	homePath := irods_common.GetHomePath()
-	sharedPath := irods_common.GetSharedPath()
+	homePath := irods_common.GetHomePath(r.config)
+	sharedPath := irods_common.GetSharedPath(r.config)
 
 	return []string{
 		homePath + "/*",
@@ -96,7 +98,7 @@ func (r *Filesystem) Handler(ctx context.Context, request mcp.ReadResourceReques
 		return nil, xerrors.Errorf("failed to create a irods fs client: %w", err)
 	}
 
-	irodsPath := irods_common.MakeIRODSPath(fs, parsedURL.Path)
+	irodsPath := irods_common.MakeIRODSPath(r.config, parsedURL.Path)
 
 	// check permission
 	permissionMgr := r.mcpServer.GetPermissionManager()
@@ -127,7 +129,7 @@ func (r *Filesystem) Handler(ctx context.Context, request mcp.ReadResourceReques
 	}
 
 	// file
-	webdavURL := irods_common.MakeWebdavURL(sourceEntry.Path)
+	webdavURL := irods_common.MakeWebdavURL(r.config, sourceEntry.Path)
 	if sourceEntry.Size > irods_common.MaxInlineSize {
 		// file is too large to inline, return a reference to WebDAV URL
 		return []mcp.ResourceContents{
@@ -190,7 +192,7 @@ func (r *Filesystem) listCollection(fs *irodsclient_fs.FileSystem, sourceEntry *
 		objStruct := model.EntryWithAccess{
 			Entry:       dirEntry,
 			ResourceURI: irods_common.MakeResourceURI(dirEntry.Path),
-			WebDAVURI:   irods_common.MakeWebdavURL(dirEntry.Path),
+			WebDAVURI:   irods_common.MakeWebdavURL(r.config, dirEntry.Path),
 		}
 
 		outputEntries = append(outputEntries, objStruct)
@@ -199,7 +201,7 @@ func (r *Filesystem) listCollection(fs *irodsclient_fs.FileSystem, sourceEntry *
 	listDirectoryOutput := model.ListDirectoryOutput{
 		Directory:            sourceEntry,
 		DirectoryResourceURI: irods_common.MakeResourceURI(sourceEntry.Path),
-		DirectoryWebDAVURI:   irods_common.MakeWebdavURL(sourceEntry.Path),
+		DirectoryWebDAVURI:   irods_common.MakeWebdavURL(r.config, sourceEntry.Path),
 		DirectoryEntries:     outputEntries,
 	}
 

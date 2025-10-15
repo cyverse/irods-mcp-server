@@ -11,6 +11,7 @@ import (
 
 var (
 	mcpServer *IRODSMCPServer
+	mcpConfig *common.Config
 )
 
 func TestTool(t *testing.T) {
@@ -30,12 +31,25 @@ func TestTool(t *testing.T) {
 	t.Run("ReadFile", testReadFile)
 }
 
+func getTestServerConfig() *common.Config {
+	config := common.NewDefaultConfig()
+	config.IRODSConfig.Host = "data.cyverse.org"
+	config.IRODSConfig.Port = 1247
+	config.IRODSConfig.ZoneName = "iplant"
+	config.IRODSSharedDirName = "shared"
+
+	return config
+}
+
 func Init() {
-	svr, err := NewIRODSMCPServer(nil)
+	config := getTestServerConfig()
+
+	svr, err := NewIRODSMCPServer(nil, config)
 	if err != nil {
 		panic(err)
 	}
 	mcpServer = svr
+	mcpConfig = config
 }
 
 func testListAllowedDirectoriesAndAPIs(t *testing.T) {
@@ -83,7 +97,7 @@ func testListDirectory(t *testing.T) {
 	req := model.ToolRequest{
 		Params: model.ToolRequestParams{
 			Arguments: map[string]interface{}{
-				"path": irods_common.GetSharedPath(),
+				"path": irods_common.GetSharedPath(mcpConfig),
 			},
 		},
 	}
@@ -123,7 +137,7 @@ func testListDirectoryRejected(t *testing.T) {
 	req := model.ToolRequest{
 		Params: model.ToolRequestParams{
 			Arguments: map[string]interface{}{
-				"path": irods_common.GetHomePath(),
+				"path": irods_common.GetHomePath(mcpConfig),
 			},
 		},
 	}
@@ -163,7 +177,7 @@ func testListDirectoryDetails(t *testing.T) {
 	req := model.ToolRequest{
 		Params: model.ToolRequestParams{
 			Arguments: map[string]interface{}{
-				"path": irods_common.GetSharedPath(),
+				"path": irods_common.GetSharedPath(mcpConfig),
 			},
 		},
 	}
@@ -203,7 +217,7 @@ func testListDirectoryDetailsRejected(t *testing.T) {
 	req := model.ToolRequest{
 		Params: model.ToolRequestParams{
 			Arguments: map[string]interface{}{
-				"path": irods_common.GetHomePath(),
+				"path": irods_common.GetHomePath(mcpConfig),
 			},
 		},
 	}
@@ -243,7 +257,7 @@ func testDirectoryTree(t *testing.T) {
 	req := model.ToolRequest{
 		Params: model.ToolRequestParams{
 			Arguments: map[string]interface{}{
-				"path":  irods_common.GetSharedPath() + "/terraref",
+				"path":  irods_common.GetSharedPath(mcpConfig) + "/terraref",
 				"depth": 2,
 			},
 		},
@@ -284,7 +298,7 @@ func testDirectoryTreeRejected(t *testing.T) {
 	req := model.ToolRequest{
 		Params: model.ToolRequestParams{
 			Arguments: map[string]interface{}{
-				"path":  irods_common.GetSharedPath(),
+				"path":  irods_common.GetSharedPath(mcpConfig),
 				"depth": 2,
 			},
 		},
@@ -325,7 +339,7 @@ func testSearchFiles(t *testing.T) {
 	req := model.ToolRequest{
 		Params: model.ToolRequestParams{
 			Arguments: map[string]interface{}{
-				"path": irods_common.GetSharedPath() + "/terraref/README*",
+				"path": irods_common.GetSharedPath(mcpConfig) + "/terraref/README*",
 			},
 		},
 	}
@@ -365,7 +379,7 @@ func testSearchFilesRejected(t *testing.T) {
 	req := model.ToolRequest{
 		Params: model.ToolRequestParams{
 			Arguments: map[string]interface{}{
-				"path": irods_common.GetSharedPath() + "/README*",
+				"path": irods_common.GetSharedPath(mcpConfig) + "/README*",
 			},
 		},
 	}
@@ -405,7 +419,7 @@ func testGetFileInfo(t *testing.T) {
 	req := model.ToolRequest{
 		Params: model.ToolRequestParams{
 			Arguments: map[string]interface{}{
-				"path": irods_common.GetSharedPath() + "/terraref/README.txt",
+				"path": irods_common.GetSharedPath(mcpConfig) + "/terraref/README.txt",
 			},
 		},
 	}
@@ -445,7 +459,7 @@ func testGetFileInfoForDir(t *testing.T) {
 	req := model.ToolRequest{
 		Params: model.ToolRequestParams{
 			Arguments: map[string]interface{}{
-				"path": irods_common.GetSharedPath() + "/terraref",
+				"path": irods_common.GetSharedPath(mcpConfig) + "/terraref",
 			},
 		},
 	}
@@ -485,7 +499,7 @@ func testReadFile(t *testing.T) {
 	req := model.ToolRequest{
 		Params: model.ToolRequestParams{
 			Arguments: map[string]interface{}{
-				"path": irods_common.GetSharedPath() + "/terraref/README.txt",
+				"path": irods_common.GetSharedPath(mcpConfig) + "/terraref/README.txt",
 			},
 		},
 	}

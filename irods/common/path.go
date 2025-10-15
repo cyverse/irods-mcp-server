@@ -8,14 +8,15 @@ import (
 	"strings"
 
 	irodsclient_fs "github.com/cyverse/go-irodsclient/fs"
+	"github.com/cyverse/irods-mcp-server/common"
 	"golang.org/x/xerrors"
 )
 
-func MakeIRODSPath(filesystem *irodsclient_fs.FileSystem, irodsPath string) string {
-	account := filesystem.GetAccount()
+func MakeIRODSPath(config *common.Config, irodsPath string) string {
+	account := config.IRODSConfig.ToIRODSAccount()
 	homePath := account.GetHomeDirPath()
 	if account.IsAnonymousUser() {
-		homePath = GetSharedPath()
+		homePath = GetSharedPath(config)
 	}
 
 	return makeIRODSPath(homePath, homePath, account.ClientZone, irodsPath)

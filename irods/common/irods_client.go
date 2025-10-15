@@ -2,36 +2,38 @@ package common
 
 import (
 	"fmt"
+	"strings"
 
 	irodsclient_fs "github.com/cyverse/go-irodsclient/fs"
 	irodsclient_types "github.com/cyverse/go-irodsclient/irods/types"
+	"github.com/cyverse/irods-mcp-server/common"
 )
 
 // TODO: make these configurable via env vars or config files
-func GetEmptyIRODSAccount() *irodsclient_types.IRODSAccount {
-	return &irodsclient_types.IRODSAccount{
-		Host:                 "data.cyverse.org",
-		Port:                 1247,
-		ClientZone:           "iplant",
-		AuthenticationScheme: irodsclient_types.AuthSchemeNative,
+func GetEmptyIRODSAccount(config *common.Config) *irodsclient_types.IRODSAccount {
+	return config.IRODSConfig.ToIRODSAccount()
+}
+
+func GetHomePath(config *common.Config) string {
+	account := config.IRODSConfig.ToIRODSAccount()
+	if account.IsAnonymousUser() {
+		return GetSharedPath(config)
 	}
+
+	return account.GetHomeDirPath()
 }
 
-func GetHomePath() string {
-	account := GetEmptyIRODSAccount()
-	return fmt.Sprintf("/%s/home", account.ClientZone)
+func GetSharedPath(config *common.Config) string {
+	account := config.IRODSConfig.ToIRODSAccount()
+	return fmt.Sprintf("/%s/home/%s", account.ClientZone, config.IRODSSharedDirName)
 }
 
-// TODO: make this configurable via env vars or config files
-func GetSharedPath() string {
-	account := GetEmptyIRODSAccount()
-	return fmt.Sprintf("/%s/home/shared", account.ClientZone)
-}
+func MakeWebdavURL(config *common.Config, irodsPath string) string {
+	if config.IRODSWebDAVURL == "" {
+		return ""
+	}
 
-// TODO: make this configurable via env vars or config files
-func MakeWebdavURL(irodsPath string) string {
-	account := GetEmptyIRODSAccount()
-	return fmt.Sprintf("https://%s/dav%s", account.Host, irodsPath)
+	return config.IRODSWebDAVURL + "/" + strings.TrimLeft(irodsPath, "/")
 }
 
 // GetIRODSFSClient returns a file system client

@@ -61,7 +61,6 @@ func ProcessCommonFlags(command *cobra.Command) (*common.Config, bool, error) {
 		logger.Errorf("%+v", err)
 		return nil, false, err // stop here
 	}
-	logger.Infof("Config from Environmental variables: %+v", config)
 
 	if len(commonFlagValues.ConfigPath) > 0 {
 		serviceConfig, err := common.NewConfigFromFile(config, commonFlagValues.ConfigPath)
@@ -72,8 +71,6 @@ func ProcessCommonFlags(command *cobra.Command) (*common.Config, bool, error) {
 
 		// overwrite config
 		config = serviceConfig
-
-		logger.Infof("Config from file %q: %+v", commonFlagValues.ConfigPath, config)
 	}
 
 	if commonFlagValues.Remote {

@@ -9,6 +9,7 @@ import (
 	"golang.org/x/xerrors"
 	yaml "gopkg.in/yaml.v2"
 
+	irods_config "github.com/cyverse/go-irodsclient/config"
 	"github.com/kelseyhightower/envconfig"
 	log "github.com/sirupsen/logrus"
 )
@@ -16,6 +17,9 @@ import (
 const (
 	DefaultServiceURL     string = "http://:8080"
 	DefaultServiceLogPath string = "./irods-mcp-server.log"
+
+	DefaultIRODSPort          int    = 1247
+	DefaultIRODSSharedDirName string = "public"
 )
 
 // Config holds the parameters list which can be configured
@@ -25,6 +29,13 @@ type Config struct {
 	Background bool   `yaml:"background,omitempty" json:"background,omitempty" envconfig:"IRODS_MCP_SVR_BACKGROUND"`
 	Debug      bool   `yaml:"debug" json:"debug" envconfig:"IRODS_MCP_SVR_DEBUG"`
 	LogPath    string `yaml:"log_path,omitempty" json:"log_path,omitempty" envconfig:"IRODS_MCP_SVR_LOG_PATH"`
+
+	// IRODS config
+	IRODSConfig irods_config.Config `yaml:"irods" json:"irods"`
+
+	// Extra config
+	IRODSSharedDirName string `yaml:"irods_shared_dir_name,omitempty" json:"irods_shared_dir_name,omitempty" envconfig:"IRODS_MCP_SVR_IRODS_SHARED_DIR_NAME"`
+	IRODSWebDAVURL     string `yaml:"irods_webdav_url,omitempty" json:"irods_webdav_url,omitempty" envconfig:"IRODS_MCP_SVR_IRODS_WEBDAV_URL"`
 }
 
 // NewDefaultConfig returns a default config
@@ -35,6 +46,11 @@ func NewDefaultConfig() *Config {
 		Background: false,
 		Debug:      false,
 		LogPath:    "", // use default
+
+		IRODSConfig: *irods_config.GetDefaultConfig(),
+
+		IRODSSharedDirName: DefaultIRODSSharedDirName, // use default
+		IRODSWebDAVURL:     "",
 	}
 }
 
@@ -63,9 +79,9 @@ func NewConfigFromFile(existingConfig *Config, filePath string) (*Config, error)
 
 // NewConfigFromYAMLFile creates Config from YAML
 func NewConfigFromYAMLFile(existingConfig *Config, yamlPath string) (*Config, error) {
-	cfg := Config{}
+	cfg := NewDefaultConfig()
 	if existingConfig != nil {
-		cfg = *existingConfig
+		cfg = existingConfig
 	}
 
 	yamlBytes, err := os.ReadFile(yamlPath)
@@ -78,7 +94,7 @@ func NewConfigFromYAMLFile(existingConfig *Config, yamlPath string) (*Config, er
 		return nil, xerrors.Errorf("failed to unmarshal YAML file %q to config: %w", yamlPath, err)
 	}
 
-	return &cfg, nil
+	return cfg, nil
 }
 
 // NewConfigFromYAML creates Config from YAML
@@ -98,9 +114,9 @@ func NewConfigFromYAML(existingConfig *Config, yamlBytes []byte) (*Config, error
 
 // NewConfigFromJSONFile creates Config from JSON
 func NewConfigFromJSONFile(existingConfig *Config, jsonPath string) (*Config, error) {
-	cfg := Config{}
+	cfg := NewDefaultConfig()
 	if existingConfig != nil {
-		cfg = *existingConfig
+		cfg = existingConfig
 	}
 
 	jsonBytes, err := os.ReadFile(jsonPath)
@@ -108,12 +124,12 @@ func NewConfigFromJSONFile(existingConfig *Config, jsonPath string) (*Config, er
 		return nil, xerrors.Errorf("failed to read YAML file %q: %w", jsonPath, err)
 	}
 
-	err = json.Unmarshal(jsonBytes, &cfg)
+	err = json.Unmarshal(jsonBytes, cfg)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to unmarshal JSON file %q to config: %w", jsonPath, err)
 	}
 
-	return &cfg, nil
+	return cfg, nil
 }
 
 // NewConfigFromJSON creates Config from JSON
@@ -224,6 +240,12 @@ func (config *Config) Validate() error {
 		if !strings.HasPrefix(config.ServiceURL, "http://") && !strings.HasPrefix(config.ServiceURL, "https://") {
 			return xerrors.Errorf("service URL must start with http:// or https://")
 		}
+	}
+
+	account := config.IRODSConfig.ToIRODSAccount()
+	err := account.Validate()
+	if err != nil {
+		return xerrors.Errorf("invalid iRODS account configuration: %w", err)
 	}
 
 	return nil

@@ -4,7 +4,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/cyverse/irods-mcp-server/irods/common"
+	"github.com/cyverse/irods-mcp-server/common"
+	irods_common "github.com/cyverse/irods-mcp-server/irods/common"
 	"github.com/cyverse/irods-mcp-server/irods/model"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -12,16 +13,18 @@ import (
 )
 
 const (
-	ListAllowedDirectoriesName = common.IRODSAPIPrefix + "list_allowed_directories"
+	ListAllowedDirectoriesName = irods_common.IRODSAPIPrefix + "list_allowed_directories"
 )
 
 type ListAllowedDirectories struct {
 	mcpServer *IRODSMCPServer
+	config    *common.Config
 }
 
 func NewListAllowedDirectories(svr *IRODSMCPServer) ToolAPI {
 	return &ListAllowedDirectories{
 		mcpServer: svr,
+		config:    svr.GetConfig(),
 	}
 }
 
@@ -49,7 +52,7 @@ func (t *ListAllowedDirectories) Handler(ctx context.Context, request mcp.CallTo
 	content, err := t.listAllowedDirectories()
 	if err != nil {
 		outputErr := xerrors.Errorf("failed to list allowed directories (collections) and APIs: %w", err)
-		return common.OutputMCPError(outputErr)
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	return mcp.NewToolResultText(content), nil
@@ -69,13 +72,13 @@ func (t *ListAllowedDirectories) listAllowedDirectories() (string, error) {
 		if len(apiPermission.APIs) == 0 {
 			allowedAPIs = append(allowedAPIs, model.AllowedAPIs{
 				Path:        apiPermission.Path,
-				ResourceURI: common.MakeResourceURI(apiPermission.Path),
+				ResourceURI: irods_common.MakeResourceURI(apiPermission.Path),
 				Allowed:     false,
 			})
 		} else {
 			allowedAPIs = append(allowedAPIs, model.AllowedAPIs{
 				Path:        apiPermission.Path,
-				ResourceURI: common.MakeResourceURI(apiPermission.Path),
+				ResourceURI: irods_common.MakeResourceURI(apiPermission.Path),
 				APIs:        apiPermission.APIs,
 				Allowed:     true,
 			})

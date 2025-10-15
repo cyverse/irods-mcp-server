@@ -20,6 +20,7 @@ const (
 
 type GetFileInfo struct {
 	mcpServer             *IRODSMCPServer
+	config                *common.Config
 	systemMetadataNameMap map[string]string
 }
 
@@ -32,6 +33,7 @@ func NewGetFileInfo(svr *IRODSMCPServer) ToolAPI {
 
 	return &GetFileInfo{
 		mcpServer:             svr,
+		config:                svr.GetConfig(),
 		systemMetadataNameMap: systemMetadataNameMap,
 	}
 }
@@ -61,8 +63,8 @@ func (t *GetFileInfo) GetHandler() server.ToolHandlerFunc {
 }
 
 func (t *GetFileInfo) GetAccessiblePaths() []string {
-	homePath := irods_common.GetHomePath()
-	sharedPath := irods_common.GetSharedPath()
+	homePath := irods_common.GetHomePath(t.config)
+	sharedPath := irods_common.GetSharedPath(t.config)
 
 	return []string{
 		homePath + "/*",
@@ -90,7 +92,7 @@ func (t *GetFileInfo) Handler(ctx context.Context, request mcp.CallToolRequest) 
 		return nil, xerrors.Errorf("failed to create a irods fs client: %w", err)
 	}
 
-	irodsPath := irods_common.MakeIRODSPath(fs, inputPath)
+	irodsPath := irods_common.MakeIRODSPath(t.config, inputPath)
 
 	// check permission
 	permissionMgr := t.mcpServer.GetPermissionManager()
@@ -156,7 +158,7 @@ func (t *GetFileInfo) getFileInfo(fs *irodsclient_fs.FileSystem, sourceEntry *ir
 		MIMEType:          mimeType,
 		EntryInfo:         sourceEntry,
 		ResourceURI:       irods_common.MakeResourceURI(sourceEntry.Path),
-		WebDAVURI:         irods_common.MakeWebdavURL(sourceEntry.Path),
+		WebDAVURI:         irods_common.MakeWebdavURL(t.config, sourceEntry.Path),
 		Accesses:          accesses,
 		AccessInheritance: accessInherit,
 		Metadata:          filteredMetadatas,
