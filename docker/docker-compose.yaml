@@ -12,3 +12,11 @@ services:
       - IRODS_MCP_SVR_BACKGROUND=false
       - IRODS_MCP_SVR_DEBUG=true
       - IRODS_MCP_SVR_LOG_PATH=/var/log/irods-mcp-server.log
+      - IRODS_MCP_SVR_IRODS_PROXY_AUTH=false
+      - IRODS_MCP_SVR_IRODS_SHARED_DIR_NAME=shared
+      - IRODS_MCP_SVR_IRODS_WEBDAV_URL=https://data.cyverse.org/dav/
+      - IRODS_HOST=data.cyverse.org
+      - IRODS_PORT=1247
+      - IRODS_ZONE_NAME=iplant
+      - IRODS_USER_NAME=anonymous
+      - IRODS_USER_PASSWORD=

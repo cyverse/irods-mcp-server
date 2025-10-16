@@ -31,6 +31,22 @@ spec:
           value: "true"
         - name: IRODS_MCP_SVR_LOG_PATH
           value: "/data/irods-mcp-server.log"
+        - name: IRODS_MCP_SVR_IRODS_PROXY_AUTH
+          value: "false"
+        - name: IRODS_MCP_SVR_IRODS_SHARED_DIR_NAME
+          value: "shared"
+        - name: IRODS_MCP_SVR_IRODS_WEBDAV_URL
+          value: "https://data.cyverse.org/dav/"
+        - name: IRODS_HOST
+          value: "data.cyverse.org"
+        - name: IRODS_PORT
+          value: "1247"
+        - name: IRODS_ZONE_NAME
+          value: "iplant"
+        - name: IRODS_USER_NAME
+          value: "anonymous"
+        - name: IRODS_USER_PASSWORD
+          value: ""
         volumeMounts:
         - name: log-volume
           mountPath: /data
