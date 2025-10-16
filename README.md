@@ -16,7 +16,7 @@ After editing, restart Claude Desktop to apply the changes.
 
 ### a. Using Anonymous Access
 
-This configuration allows access only to public data located at `/<zone>/home/shared` or `/<zone>/home/public`.
+This configuration allows access only to public data located at `/iplant/home/shared`.
 
 ```json
 {
@@ -27,6 +27,14 @@ This configuration allows access only to public data located at `/<zone>/home/sh
                 "run",
                 "-i",
                 "--rm",
+                "-e",
+                "IRODS_MCP_SVR_IRODS_SHARED_DIR_NAME=shared",
+                "-e",
+                "IRODS_HOST=data.cyverse.org",
+                "-e",
+                "IRODS_PORT=1247",
+                "-e",
+                "IRODS_ZONE_NAME=iplant",
                 "cyverse/irods-mcp-server"
             ]
         }
@@ -48,9 +56,17 @@ This configuration allows access to your iRODS home directory (`/<zone>/home/<us
                 "-i",
                 "--rm",
                 "-e",
-                "USERNAME=irods_username",
+                "IRODS_MCP_SVR_IRODS_SHARED_DIR_NAME=shared",
                 "-e",
-                "PASSWORD=irods_password",
+                "IRODS_HOST=data.cyverse.org",
+                "-e",
+                "IRODS_PORT=1247",
+                "-e",
+                "IRODS_ZONE_NAME=iplant",
+                "-e",
+                "IRODS_USER_NAME=irods_username",
+                "-e",
+                "IRODS_USER_PASSWORD=irods_password",
                 "cyverse/irods-mcp-server"
             ]
         }
