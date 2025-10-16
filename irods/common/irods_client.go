@@ -11,20 +11,18 @@ import (
 
 // TODO: make these configurable via env vars or config files
 func GetEmptyIRODSAccount(config *common.Config) *irodsclient_types.IRODSAccount {
-	return config.IRODSConfig.ToIRODSAccount()
+	return config.Config.ToIRODSAccount()
 }
 
-func GetHomePath(config *common.Config) string {
-	account := config.IRODSConfig.ToIRODSAccount()
+func GetHomePath(config *common.Config, account *irodsclient_types.IRODSAccount) string {
 	if account.IsAnonymousUser() {
-		return GetSharedPath(config)
+		return GetSharedPath(config, account)
 	}
 
 	return account.GetHomeDirPath()
 }
 
-func GetSharedPath(config *common.Config) string {
-	account := config.IRODSConfig.ToIRODSAccount()
+func GetSharedPath(config *common.Config, account *irodsclient_types.IRODSAccount) string {
 	return fmt.Sprintf("/%s/home/%s", account.ClientZone, config.IRODSSharedDirName)
 }
 

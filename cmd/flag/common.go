@@ -40,10 +40,7 @@ func SetCommonFlags(command *cobra.Command) {
 }
 
 func ProcessCommonFlags(command *cobra.Command) (*common.Config, bool, error) {
-	logger := log.WithFields(log.Fields{
-		"package":  "flag",
-		"function": "ProcessCommonFlags",
-	})
+	logger := log.WithFields(log.Fields{})
 
 	if commonFlagValues.ShowHelp {
 		PrintHelp(command)

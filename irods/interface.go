@@ -1,6 +1,7 @@
 package irods
 
 import (
+	"github.com/cyverse/irods-mcp-server/common"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -10,7 +11,7 @@ type ToolAPI interface {
 	GetDescription() string
 	GetTool() mcp.Tool
 	GetHandler() server.ToolHandlerFunc
-	GetAccessiblePaths() []string
+	GetAccessiblePaths(authValue *common.AuthValue) []string
 }
 
 type ResourceAPI interface {
@@ -20,5 +21,4 @@ type ResourceAPI interface {
 	GetDescription() string
 	GetResource() mcp.Resource
 	GetHandler() server.ResourceHandlerFunc
-	GetAccessiblePaths() []string
 }

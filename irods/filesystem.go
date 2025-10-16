@@ -62,15 +62,25 @@ func (r *Filesystem) GetHandler() server.ResourceHandlerFunc {
 	return r.Handler
 }
 
-func (r *Filesystem) GetAccessiblePaths() []string {
-	homePath := irods_common.GetHomePath(r.config)
-	sharedPath := irods_common.GetSharedPath(r.config)
+func (r *Filesystem) GetAccessiblePaths(authValue *common.AuthValue) []string {
+	account, err := r.mcpServer.GetIRODSAccountFromAuthValue(authValue)
+	if err != nil {
+		return []string{}
+	}
 
-	return []string{
-		homePath + "/*",
+	homePath := irods_common.GetHomePath(r.config, account)
+	sharedPath := irods_common.GetSharedPath(r.config, account)
+
+	paths := []string{
 		sharedPath,
 		sharedPath + "/*",
 	}
+
+	if !account.IsAnonymousUser() {
+		paths = append(paths, homePath+"/*")
+	}
+
+	return paths
 }
 
 func (r *Filesystem) Handler(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
@@ -98,11 +108,10 @@ func (r *Filesystem) Handler(ctx context.Context, request mcp.ReadResourceReques
 		return nil, xerrors.Errorf("failed to create a irods fs client: %w", err)
 	}
 
-	irodsPath := irods_common.MakeIRODSPath(r.config, parsedURL.Path)
+	irodsPath := irods_common.MakeIRODSPath(r.config, fs.GetAccount(), parsedURL.Path)
 
 	// check permission
-	permissionMgr := r.mcpServer.GetPermissionManager()
-	if !permissionMgr.IsAPIAllowed(irodsPath, r.GetName()) {
+	if !irods_common.IsAccessAllowed(irodsPath, r.GetAccessiblePaths(&authValue)) {
 		return nil, xerrors.Errorf("request is not permitted for path %q", irodsPath)
 	}
 

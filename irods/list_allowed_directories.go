@@ -49,7 +49,13 @@ func (t *ListAllowedDirectories) GetHandler() server.ToolHandlerFunc {
 }
 
 func (t *ListAllowedDirectories) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	content, err := t.listAllowedDirectories()
+	// auth
+	authValue, err := common.GetAuthValue(ctx)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to get auth value: %w", err)
+	}
+
+	content, err := t.listAllowedDirectories(&authValue)
 	if err != nil {
 		outputErr := xerrors.Errorf("failed to list allowed directories (collections) and APIs: %w", err)
 		return irods_common.OutputMCPError(outputErr)
@@ -58,35 +64,40 @@ func (t *ListAllowedDirectories) Handler(ctx context.Context, request mcp.CallTo
 	return mcp.NewToolResultText(content), nil
 }
 
-func (t *ListAllowedDirectories) GetAccessiblePaths() []string {
+func (t *ListAllowedDirectories) GetAccessiblePaths(authValue *common.AuthValue) []string {
 	return []string{}
 }
 
-func (t *ListAllowedDirectories) listAllowedDirectories() (string, error) {
-	permissionMgr := t.mcpServer.GetPermissionManager()
-	apiPermissions := permissionMgr.GetAll()
+func (t *ListAllowedDirectories) listAllowedDirectories(authValue *common.AuthValue) (string, error) {
+	// collect all allowed directories (collections) and APIs
+	// key = path, value = list of API names
+	allowedAPIs := map[string][]string{}
 
-	allowedAPIs := []model.AllowedAPIs{}
-
-	for _, apiPermission := range apiPermissions {
-		if len(apiPermission.APIs) == 0 {
-			allowedAPIs = append(allowedAPIs, model.AllowedAPIs{
-				Path:        apiPermission.Path,
-				ResourceURI: irods_common.MakeResourceURI(apiPermission.Path),
-				Allowed:     false,
-			})
-		} else {
-			allowedAPIs = append(allowedAPIs, model.AllowedAPIs{
-				Path:        apiPermission.Path,
-				ResourceURI: irods_common.MakeResourceURI(apiPermission.Path),
-				APIs:        apiPermission.APIs,
-				Allowed:     true,
-			})
+	for _, t := range t.mcpServer.tools {
+		accessiblePaths := t.GetAccessiblePaths(authValue)
+		for _, accessiblePath := range accessiblePaths {
+			if allowedAPIsForPath, ok := allowedAPIs[accessiblePath]; ok {
+				allowedAPIsForPath = append(allowedAPIsForPath, t.GetName())
+				allowedAPIs[accessiblePath] = allowedAPIsForPath
+			} else {
+				allowedAPIs[accessiblePath] = []string{t.GetName()}
+			}
 		}
 	}
 
+	allowedAPIList := []model.AllowedAPIs{}
+
+	for path, apiNames := range allowedAPIs {
+		allowedAPIList = append(allowedAPIList, model.AllowedAPIs{
+			Path:        path,
+			ResourceURI: irods_common.MakeResourceURI(path),
+			APIs:        apiNames,
+			Allowed:     true,
+		})
+	}
+
 	listAllowedDirectoriesOutput := model.ListAllowedDirectories{
-		Directories: allowedAPIs,
+		Directories: allowedAPIList,
 	}
 
 	jsonBytes, err := json.Marshal(listAllowedDirectoriesOutput)

@@ -33,9 +33,10 @@ func TestTool(t *testing.T) {
 
 func getTestServerConfig() *common.Config {
 	config := common.NewDefaultConfig()
-	config.IRODSConfig.Host = "data.cyverse.org"
-	config.IRODSConfig.Port = 1247
-	config.IRODSConfig.ZoneName = "iplant"
+	config.Config.Host = "data.cyverse.org"
+	config.Config.Port = 1247
+	config.Config.ZoneName = "iplant"
+	config.Config.Username = "anonymous"
 	config.IRODSSharedDirName = "shared"
 
 	return config
@@ -94,10 +95,20 @@ func testListDirectory(t *testing.T) {
 	assert.NotEmpty(t, myTool.GetDescription())
 
 	ctx := common.AuthForTest()
+	authVal, err := common.GetAuthValue(ctx)
+	if err != nil {
+		t.Fatalf("failed to get auth value: %v", err)
+	}
+
+	mcpAccount, err := mcpServer.GetIRODSAccountFromAuthValue(&authVal)
+	if err != nil {
+		t.Fatalf("failed to get irods account from auth value: %v", err)
+	}
+
 	req := model.ToolRequest{
 		Params: model.ToolRequestParams{
 			Arguments: map[string]interface{}{
-				"path": irods_common.GetSharedPath(mcpConfig),
+				"path": irods_common.GetSharedPath(mcpConfig, mcpAccount) + "/terraref",
 			},
 		},
 	}
@@ -134,10 +145,20 @@ func testListDirectoryRejected(t *testing.T) {
 	assert.NotEmpty(t, myTool.GetDescription())
 
 	ctx := common.AuthForTest()
+	authVal, err := common.GetAuthValue(ctx)
+	if err != nil {
+		t.Fatalf("failed to get auth value: %v", err)
+	}
+
+	mcpAccount, err := mcpServer.GetIRODSAccountFromAuthValue(&authVal)
+	if err != nil {
+		t.Fatalf("failed to get irods account from auth value: %v", err)
+	}
+
 	req := model.ToolRequest{
 		Params: model.ToolRequestParams{
 			Arguments: map[string]interface{}{
-				"path": irods_common.GetHomePath(mcpConfig),
+				"path": irods_common.GetHomePath(mcpConfig, mcpAccount),
 			},
 		},
 	}
@@ -174,10 +195,20 @@ func testListDirectoryDetails(t *testing.T) {
 	assert.NotEmpty(t, myTool.GetDescription())
 
 	ctx := common.AuthForTest()
+	authVal, err := common.GetAuthValue(ctx)
+	if err != nil {
+		t.Fatalf("failed to get auth value: %v", err)
+	}
+
+	mcpAccount, err := mcpServer.GetIRODSAccountFromAuthValue(&authVal)
+	if err != nil {
+		t.Fatalf("failed to get irods account from auth value: %v", err)
+	}
+
 	req := model.ToolRequest{
 		Params: model.ToolRequestParams{
 			Arguments: map[string]interface{}{
-				"path": irods_common.GetSharedPath(mcpConfig),
+				"path": irods_common.GetSharedPath(mcpConfig, mcpAccount),
 			},
 		},
 	}
@@ -214,10 +245,20 @@ func testListDirectoryDetailsRejected(t *testing.T) {
 	assert.NotEmpty(t, myTool.GetDescription())
 
 	ctx := common.AuthForTest()
+	authVal, err := common.GetAuthValue(ctx)
+	if err != nil {
+		t.Fatalf("failed to get auth value: %v", err)
+	}
+
+	mcpAccount, err := mcpServer.GetIRODSAccountFromAuthValue(&authVal)
+	if err != nil {
+		t.Fatalf("failed to get irods account from auth value: %v", err)
+	}
+
 	req := model.ToolRequest{
 		Params: model.ToolRequestParams{
 			Arguments: map[string]interface{}{
-				"path": irods_common.GetHomePath(mcpConfig),
+				"path": irods_common.GetHomePath(mcpConfig, mcpAccount),
 			},
 		},
 	}
@@ -254,10 +295,20 @@ func testDirectoryTree(t *testing.T) {
 	assert.NotEmpty(t, myTool.GetDescription())
 
 	ctx := common.AuthForTest()
+	authVal, err := common.GetAuthValue(ctx)
+	if err != nil {
+		t.Fatalf("failed to get auth value: %v", err)
+	}
+
+	mcpAccount, err := mcpServer.GetIRODSAccountFromAuthValue(&authVal)
+	if err != nil {
+		t.Fatalf("failed to get irods account from auth value: %v", err)
+	}
+
 	req := model.ToolRequest{
 		Params: model.ToolRequestParams{
 			Arguments: map[string]interface{}{
-				"path":  irods_common.GetSharedPath(mcpConfig) + "/terraref",
+				"path":  irods_common.GetSharedPath(mcpConfig, mcpAccount) + "/terraref",
 				"depth": 2,
 			},
 		},
@@ -295,10 +346,20 @@ func testDirectoryTreeRejected(t *testing.T) {
 	assert.NotEmpty(t, myTool.GetDescription())
 
 	ctx := common.AuthForTest()
+	authVal, err := common.GetAuthValue(ctx)
+	if err != nil {
+		t.Fatalf("failed to get auth value: %v", err)
+	}
+
+	mcpAccount, err := mcpServer.GetIRODSAccountFromAuthValue(&authVal)
+	if err != nil {
+		t.Fatalf("failed to get irods account from auth value: %v", err)
+	}
+
 	req := model.ToolRequest{
 		Params: model.ToolRequestParams{
 			Arguments: map[string]interface{}{
-				"path":  irods_common.GetSharedPath(mcpConfig),
+				"path":  irods_common.GetSharedPath(mcpConfig, mcpAccount),
 				"depth": 2,
 			},
 		},
@@ -336,10 +397,20 @@ func testSearchFiles(t *testing.T) {
 	assert.NotEmpty(t, myTool.GetDescription())
 
 	ctx := common.AuthForTest()
+	authVal, err := common.GetAuthValue(ctx)
+	if err != nil {
+		t.Fatalf("failed to get auth value: %v", err)
+	}
+
+	mcpAccount, err := mcpServer.GetIRODSAccountFromAuthValue(&authVal)
+	if err != nil {
+		t.Fatalf("failed to get irods account from auth value: %v", err)
+	}
+
 	req := model.ToolRequest{
 		Params: model.ToolRequestParams{
 			Arguments: map[string]interface{}{
-				"path": irods_common.GetSharedPath(mcpConfig) + "/terraref/README*",
+				"path": irods_common.GetSharedPath(mcpConfig, mcpAccount) + "/terraref/README*",
 			},
 		},
 	}
@@ -376,10 +447,20 @@ func testSearchFilesRejected(t *testing.T) {
 	assert.NotEmpty(t, myTool.GetDescription())
 
 	ctx := common.AuthForTest()
+	authVal, err := common.GetAuthValue(ctx)
+	if err != nil {
+		t.Fatalf("failed to get auth value: %v", err)
+	}
+
+	mcpAccount, err := mcpServer.GetIRODSAccountFromAuthValue(&authVal)
+	if err != nil {
+		t.Fatalf("failed to get irods account from auth value: %v", err)
+	}
+
 	req := model.ToolRequest{
 		Params: model.ToolRequestParams{
 			Arguments: map[string]interface{}{
-				"path": irods_common.GetSharedPath(mcpConfig) + "/README*",
+				"path": irods_common.GetSharedPath(mcpConfig, mcpAccount) + "/README*",
 			},
 		},
 	}
@@ -416,10 +497,20 @@ func testGetFileInfo(t *testing.T) {
 	assert.NotEmpty(t, myTool.GetDescription())
 
 	ctx := common.AuthForTest()
+	authVal, err := common.GetAuthValue(ctx)
+	if err != nil {
+		t.Fatalf("failed to get auth value: %v", err)
+	}
+
+	mcpAccount, err := mcpServer.GetIRODSAccountFromAuthValue(&authVal)
+	if err != nil {
+		t.Fatalf("failed to get irods account from auth value: %v", err)
+	}
+
 	req := model.ToolRequest{
 		Params: model.ToolRequestParams{
 			Arguments: map[string]interface{}{
-				"path": irods_common.GetSharedPath(mcpConfig) + "/terraref/README.txt",
+				"path": irods_common.GetSharedPath(mcpConfig, mcpAccount) + "/terraref/README.txt",
 			},
 		},
 	}
@@ -456,10 +547,20 @@ func testGetFileInfoForDir(t *testing.T) {
 	assert.NotEmpty(t, myTool.GetDescription())
 
 	ctx := common.AuthForTest()
+	authVal, err := common.GetAuthValue(ctx)
+	if err != nil {
+		t.Fatalf("failed to get auth value: %v", err)
+	}
+
+	mcpAccount, err := mcpServer.GetIRODSAccountFromAuthValue(&authVal)
+	if err != nil {
+		t.Fatalf("failed to get irods account from auth value: %v", err)
+	}
+
 	req := model.ToolRequest{
 		Params: model.ToolRequestParams{
 			Arguments: map[string]interface{}{
-				"path": irods_common.GetSharedPath(mcpConfig) + "/terraref",
+				"path": irods_common.GetSharedPath(mcpConfig, mcpAccount) + "/terraref",
 			},
 		},
 	}
@@ -496,10 +597,20 @@ func testReadFile(t *testing.T) {
 	assert.NotEmpty(t, myTool.GetDescription())
 
 	ctx := common.AuthForTest()
+	authVal, err := common.GetAuthValue(ctx)
+	if err != nil {
+		t.Fatalf("failed to get auth value: %v", err)
+	}
+
+	mcpAccount, err := mcpServer.GetIRODSAccountFromAuthValue(&authVal)
+	if err != nil {
+		t.Fatalf("failed to get irods account from auth value: %v", err)
+	}
+
 	req := model.ToolRequest{
 		Params: model.ToolRequestParams{
 			Arguments: map[string]interface{}{
-				"path": irods_common.GetSharedPath(mcpConfig) + "/terraref/README.txt",
+				"path": irods_common.GetSharedPath(mcpConfig, mcpAccount) + "/terraref/README.txt",
 			},
 		},
 	}

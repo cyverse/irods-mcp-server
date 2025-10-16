@@ -64,15 +64,30 @@ Create a file named `config.yaml` and add the following:
 ```yaml
 remote: true
 service_url: http://:8080
-background: true
+background: false
 debug: true
 log_path: ./irods-mcp-server.log
+
+irods_host: data.cyverse.org
+irods_port: 1247
+irods_zone_name: iplant
+irods_user_name: anonymous
+irods_user_password: 
+
+irods_proxy_auth: false
+irods_shared_dir_name: shared
+irods_webdav_url: https://data.cyverse.org/dav/
 ```
 
 With this configuration, the server:  
 - Listens for incoming connections on **port 8080**  
 - Supports both **HTTP/SSE** and **Streamable-HTTP** requests  
 - Saves all logs (including debug info) to a file named `irods-mcp-server.log`  
+- Connects to iRODS host `data.cyverse.org` and port `1247`
+- Uses `anonymous` access by default
+- Does not allow proxy auth
+- Uses `iplant` as zone name and `/iplant/home/shared` as a public shared folder
+- Uses `https://data.cyverse.org/dav/` as a root in WebDAV URL generation for file access
 
 Run the iRODS MCP Server executable using the command:
 ```bash
@@ -84,7 +99,7 @@ Once started, the server provides two endpoints:
 - Endpoint URL for HTTP/SSE: `http://localhost:8080/sse`
 - Endpoint URL for Streamable-HTTP service: `http://localhost:8080/mcp`
 
-## Setup VS Code for Anonymous Access
+### a. Setup VS Code for Anonymous Access
 
 Edit the `~/.config/Code/User/mcp.json` file.
 
@@ -103,7 +118,7 @@ Replace the URL `http://localhost:8080/mcp` with the actual one where you are ru
 }
 ```
 
-## Setup VS Code for iRODS Account
+### a. Setup VS Code for iRODS Account
 
 Create a key from your iRODS account.
 

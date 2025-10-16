@@ -2,17 +2,17 @@ package irods
 
 import (
 	irodsclient_fs "github.com/cyverse/go-irodsclient/fs"
+	"github.com/cyverse/go-irodsclient/irods/types"
 	"github.com/cyverse/irods-mcp-server/common"
 	irods_common "github.com/cyverse/irods-mcp-server/irods/common"
-	"github.com/cyverse/irods-mcp-server/irods/permission"
 	"github.com/mark3labs/mcp-go/server"
+	"golang.org/x/xerrors"
 )
 
 type IRODSMCPServer struct {
 	config            *common.Config
 	mcpServer         *server.MCPServer
 	irodsfsClientPool *irods_common.IRODSFSClientPool
-	permission        *permission.APIPermissionManager
 	resources         []ResourceAPI
 	tools             []ToolAPI
 }
@@ -22,7 +22,6 @@ func NewIRODSMCPServer(svr *server.MCPServer, config *common.Config) (*IRODSMCPS
 		config:            config,
 		mcpServer:         svr,
 		irodsfsClientPool: irods_common.NewIRODSFSClientPool(),
-		permission:        permission.NewAPIPermissionManager(),
 		resources:         []ResourceAPI{},
 		tools:             []ToolAPI{},
 	}
@@ -48,17 +47,50 @@ func (svr *IRODSMCPServer) GetIRODSFSClientPool() *irods_common.IRODSFSClientPoo
 	return svr.irodsfsClientPool
 }
 
-func (svr *IRODSMCPServer) GetIRODSFSClientFromAuthValue(authValue *common.AuthValue) (*irodsclient_fs.FileSystem, error) {
+func (svr *IRODSMCPServer) GetIRODSAccountFromAuthValue(authValue *common.AuthValue) (*types.IRODSAccount, error) {
 	account := irods_common.GetEmptyIRODSAccount(svr.config)
-	account.ClientUser = authValue.Username
-	account.Password = authValue.Password
+
+	if authValue.Username == "anonymous" {
+		// anonymous access
+		account.ProxyUser = ""
+		account.ClientUser = authValue.Username
+		account.Password = ""
+	} else if len(authValue.Username) > 0 && len(authValue.Password) > 0 {
+		// use the provided username and password
+		account.ProxyUser = ""
+		account.ClientUser = authValue.Username
+		account.Password = authValue.Password
+	} else if len(authValue.Username) > 0 && len(authValue.Password) == 0 {
+		// empty password
+		// proxy access with the provided username
+		if svr.config.IRODSProxyAuth {
+			// do not change proxy config
+			account.ClientUser = authValue.Username
+		} else {
+			return nil, xerrors.Errorf("user and password must be set")
+		}
+	} else {
+		// empty username and password
+		if authValue.ServerMode == "stdio" {
+			// use the account in configuration
+		} else {
+			// should not happen
+			return nil, xerrors.Errorf("invalid auth value with empty username and password")
+		}
+	}
+
+	account.FixAuthConfiguration()
+	return account, nil
+}
+
+func (svr *IRODSMCPServer) GetIRODSFSClientFromAuthValue(authValue *common.AuthValue) (*irodsclient_fs.FileSystem, error) {
+	account, err := svr.GetIRODSAccountFromAuthValue(authValue)
+	if err != nil {
+		return nil, err
+	}
 
 	// get the IRODSFSClient from the pool
 	return svr.irodsfsClientPool.GetIRODSFSClient(account)
-}
-
-func (svr *IRODSMCPServer) GetPermissionManager() *permission.APIPermissionManager {
-	return svr.permission
 }
 
 func (svr *IRODSMCPServer) GetMCPServer() *server.MCPServer {
@@ -89,13 +121,6 @@ func (svr *IRODSMCPServer) addResource(rs ResourceAPI) {
 	if svr.mcpServer != nil {
 		svr.mcpServer.AddResource(rs.GetResource(), rs.GetHandler())
 	}
-
-	apiName := rs.GetName()
-	accessiblePaths := rs.GetAccessiblePaths()
-
-	for _, accessiblePath := range accessiblePaths {
-		svr.permission.Add(accessiblePath, apiName)
-	}
 }
 
 func (svr *IRODSMCPServer) addTool(tool ToolAPI) {
@@ -103,13 +128,6 @@ func (svr *IRODSMCPServer) addTool(tool ToolAPI) {
 
 	if svr.mcpServer != nil {
 		svr.mcpServer.AddTool(tool.GetTool(), tool.GetHandler())
-	}
-
-	apiName := tool.GetName()
-	accessiblePaths := tool.GetAccessiblePaths()
-
-	for _, accessiblePath := range accessiblePaths {
-		svr.permission.Add(accessiblePath, apiName)
 	}
 }
 

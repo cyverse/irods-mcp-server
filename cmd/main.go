@@ -91,10 +91,7 @@ func processCommand(command *cobra.Command, args []string) error {
 }
 
 func startHTTPServer(svr *server.MCPServer, serviceUrl string) error {
-	logger := log.WithFields(log.Fields{
-		"package":  "main",
-		"function": "startHTTPServer",
-	})
+	logger := log.WithFields(log.Fields{})
 
 	logger.Info("starting MCP server in HTTP mode...")
 
@@ -170,126 +167,8 @@ func startHTTPServer(svr *server.MCPServer, serviceUrl string) error {
 
 }
 
-func startStreamableHTTPServer(svr *server.MCPServer, serviceUrl string) error {
-	logger := log.WithFields(log.Fields{
-		"package":  "main",
-		"function": "startStreamableHTTPServer",
-	})
-
-	logger.Info("starting MCP server in Streamable-HTTP mode...")
-
-	// fix url
-	if !strings.HasPrefix(serviceUrl, "http://") && !strings.HasPrefix(serviceUrl, "https://") {
-		serviceUrl = "http://" + serviceUrl
-	}
-
-	u, err := url.Parse(serviceUrl)
-	if err != nil {
-		return xerrors.Errorf("failed to parse service URL: %w", err)
-	}
-
-	logger.Infof("address: %s", u.String())
-
-	endpoint := "/mcp"
-	if len(u.Path) > 0 {
-		endpoint = u.Path
-	}
-
-	s := server.NewStreamableHTTPServer(svr,
-		server.WithEndpointPath(endpoint),
-		server.WithHTTPContextFunc(common.AuthForHTTP),
-	)
-
-	logger.Infof("endpoint: %s", endpoint)
-
-	// do not print out logs to the terminal (stdout)
-	common.SetTerminalOutput(os.Stderr)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Set up signal handling
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
-
-	go func() {
-		<-sigChan
-		s.Shutdown(ctx)
-	}()
-
-	err = s.Start(u.Host)
-	if err != nil {
-		if !strings.Contains(err.Error(), "Server closed") {
-			return xerrors.Errorf("failed to start Streamable-HTTP server: %w", err)
-		}
-	}
-
-	logger.Info("terminating MCP server in Streamable-HTTP mode...")
-	return nil
-}
-
-func startSSEServer(svr *server.MCPServer, serviceUrl string) error {
-	logger := log.WithFields(log.Fields{
-		"package":  "main",
-		"function": "startSSEServer",
-	})
-
-	logger.Info("starting MCP server in HTTP/SSE mode...")
-
-	// fix url
-	if !strings.HasPrefix(serviceUrl, "http://") && !strings.HasPrefix(serviceUrl, "https://") {
-		serviceUrl = "http://" + serviceUrl
-	}
-
-	u, err := url.Parse(serviceUrl)
-	if err != nil {
-		return xerrors.Errorf("failed to parse service URL: %w", err)
-	}
-
-	logger.Infof("address: %s", u.String())
-
-	s := server.NewSSEServer(svr,
-		server.WithBaseURL(u.String()),
-		server.WithSSEContextFunc(common.AuthForHTTP),
-	)
-	endpoint, err := s.CompleteSseEndpoint()
-	if err != nil {
-		return xerrors.Errorf("failed to complete SSE endpoint: %w", err)
-	}
-
-	logger.Infof("endpoint: %s", endpoint)
-
-	// do not print out logs to the terminal (stdout)
-	common.SetTerminalOutput(os.Stderr)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Set up signal handling
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
-
-	go func() {
-		<-sigChan
-		s.Shutdown(ctx)
-	}()
-
-	err = s.Start(u.Host)
-	if err != nil {
-		if !strings.Contains(err.Error(), "Server closed") {
-			return xerrors.Errorf("failed to start SSE server: %w", err)
-		}
-	}
-
-	logger.Info("terminating MCP server in HTTP/SSE mode...")
-	return nil
-}
-
 func startSTDIOServer(svr *server.MCPServer) error {
-	logger := log.WithFields(log.Fields{
-		"package":  "main",
-		"function": "startSTDIOServer",
-	})
+	logger := log.WithFields(log.Fields{})
 
 	logger.Info("starting MCP server in STDIO mode...")
 
@@ -315,13 +194,12 @@ func main() {
 		FullTimestamp:   true,
 	})
 
+	log.SetReportCaller(true)
+
 	log.SetLevel(log.InfoLevel)
 	log.SetOutput(common.GetTerminalWriter())
 
-	logger := log.WithFields(log.Fields{
-		"package":  "main",
-		"function": "main",
-	})
+	logger := log.WithFields(log.Fields{})
 
 	// attach common flags
 	flag.SetCommonFlags(rootCmd)
@@ -335,10 +213,7 @@ func main() {
 
 // run runs service
 func run(config *common.Config) error {
-	logger := log.WithFields(log.Fields{
-		"package":  "main",
-		"function": "run",
-	})
+	logger := log.WithFields(log.Fields{})
 
 	versionInfo := common.GetVersion()
 	logger.Infof("iRODS MCP Server version - %q, commit - %q", versionInfo.ServerVersion, versionInfo.GitCommit)

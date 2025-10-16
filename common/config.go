@@ -31,9 +31,10 @@ type Config struct {
 	LogPath    string `yaml:"log_path,omitempty" json:"log_path,omitempty" envconfig:"IRODS_MCP_SVR_LOG_PATH"`
 
 	// IRODS config
-	IRODSConfig irods_config.Config `yaml:"irods" json:"irods"`
+	irods_config.Config `yaml:",inline" json:",inline"`
 
 	// Extra config
+	IRODSProxyAuth     bool   `yaml:"irods_proxy_auth,omitempty" json:"irods_proxy_auth,omitempty" envconfig:"IRODS_MCP_SVR_IRODS_PROXY_AUTH"`
 	IRODSSharedDirName string `yaml:"irods_shared_dir_name,omitempty" json:"irods_shared_dir_name,omitempty" envconfig:"IRODS_MCP_SVR_IRODS_SHARED_DIR_NAME"`
 	IRODSWebDAVURL     string `yaml:"irods_webdav_url,omitempty" json:"irods_webdav_url,omitempty" envconfig:"IRODS_MCP_SVR_IRODS_WEBDAV_URL"`
 }
@@ -47,8 +48,9 @@ func NewDefaultConfig() *Config {
 		Debug:      false,
 		LogPath:    "", // use default
 
-		IRODSConfig: *irods_config.GetDefaultConfig(),
+		Config: *irods_config.GetDefaultConfig(),
 
+		IRODSProxyAuth:     false,                     // do not use proxy auth by default
 		IRODSSharedDirName: DefaultIRODSSharedDirName, // use default
 		IRODSWebDAVURL:     "",
 	}
@@ -183,11 +185,7 @@ func (config *Config) GetServiceURL() string {
 
 // MakeLogDir makes a log dir required
 func (config *Config) MakeLogDir() error {
-	logger := log.WithFields(log.Fields{
-		"package":  "common",
-		"object":   "Config",
-		"function": "MakeLogDir",
-	})
+	logger := log.WithFields(log.Fields{})
 
 	logFilePath := config.GetLogFilePath()
 	logDirPath := filepath.Dir(logFilePath)
@@ -242,7 +240,13 @@ func (config *Config) Validate() error {
 		}
 	}
 
-	account := config.IRODSConfig.ToIRODSAccount()
+	if config.IRODSProxyAuth {
+		if len(config.Config.Username) == 0 || len(config.Config.Password) == 0 {
+			return xerrors.Errorf("user and password must be set when proxy auth is enabled")
+		}
+	}
+
+	account := config.Config.ToIRODSAccount()
 	err := account.Validate()
 	if err != nil {
 		return xerrors.Errorf("invalid iRODS account configuration: %w", err)

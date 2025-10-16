@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/kelseyhightower/envconfig"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/xerrors"
 )
@@ -18,16 +17,18 @@ type AuthKey struct {
 type AuthValue struct {
 	Authorization string // original value from the request, only in SSE mode
 
-	ServerMode string // stdio or sse
+	ServerMode string // stdio or http
 
-	Username string `envconfig:"USERNAME"`
-	Password string `envconfig:"PASSWORD"`
+	Username string
+	Password string
 }
 
 // AuthForHTTP extracts the auth token from the request headers.
 func AuthForHTTP(ctx context.Context, r *http.Request) context.Context {
+	logger := log.WithFields(log.Fields{})
+
 	authVal := AuthValue{
-		ServerMode: "sse",
+		ServerMode: "http",
 	}
 
 	authVal.Authorization = r.Header.Get("Authorization")
@@ -47,10 +48,13 @@ func AuthForHTTP(ctx context.Context, r *http.Request) context.Context {
 		}
 	}
 
+	// if authorization is not provided, use anonymous
 	if len(authVal.Username) == 0 {
 		authVal.Username = "anonymous"
 		authVal.Password = ""
 	}
+
+	logger.Infof("auth: user=%s", authVal.Username)
 
 	return context.WithValue(ctx, AuthKey{}, authVal)
 }
@@ -119,23 +123,10 @@ func parseBearerAuth(authorization string) (string, string) {
 
 // AuthForStdio extracts the auth token from the environment
 func AuthForStdio(ctx context.Context) context.Context {
-	logger := log.WithFields(log.Fields{
-		"package":  "mode",
-		"function": "AuthForStdio",
-	})
-
 	authVal := AuthValue{
 		ServerMode: "stdio",
-	}
-
-	err := envconfig.Process("", &authVal)
-	if err != nil {
-		logger.Errorf("failed to process environment variables: %v", err)
-	}
-
-	if len(authVal.Username) == 0 {
-		authVal.Username = "anonymous"
-		authVal.Password = ""
+		Username:   "", // use username in config
+		Password:   "", // use password in config
 	}
 
 	return context.WithValue(ctx, AuthKey{}, authVal)

@@ -62,14 +62,24 @@ func (t *DirectoryTree) GetHandler() server.ToolHandlerFunc {
 	return t.Handler
 }
 
-func (t *DirectoryTree) GetAccessiblePaths() []string {
-	homePath := irods_common.GetHomePath(t.config)
-	sharedPath := irods_common.GetSharedPath(t.config)
+func (t *DirectoryTree) GetAccessiblePaths(authValue *common.AuthValue) []string {
+	account, err := t.mcpServer.GetIRODSAccountFromAuthValue(authValue)
+	if err != nil {
+		return []string{}
+	}
 
-	return []string{
-		homePath + "/*",
+	homePath := irods_common.GetHomePath(t.config, account)
+	sharedPath := irods_common.GetSharedPath(t.config, account)
+
+	paths := []string{
 		sharedPath + "/*",
 	}
+
+	if !account.IsAnonymousUser() {
+		paths = append(paths, homePath+"/*")
+	}
+
+	return paths
 }
 
 func (t *DirectoryTree) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -105,11 +115,10 @@ func (t *DirectoryTree) Handler(ctx context.Context, request mcp.CallToolRequest
 		return nil, xerrors.Errorf("failed to create a irods fs client: %w", err)
 	}
 
-	irodsPath := irods_common.MakeIRODSPath(t.config, inputPath)
+	irodsPath := irods_common.MakeIRODSPath(t.config, fs.GetAccount(), inputPath)
 
 	// check permission
-	permissionMgr := t.mcpServer.GetPermissionManager()
-	if !permissionMgr.IsAPIAllowed(irodsPath, t.GetName()) {
+	if !irods_common.IsAccessAllowed(irodsPath, t.GetAccessiblePaths(&authValue)) {
 		outputErr := xerrors.Errorf("%q request is not permitted for path %q", t.GetName(), irodsPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
