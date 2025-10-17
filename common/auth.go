@@ -30,9 +30,9 @@ type AuthValue struct {
 	Password string
 }
 
-func NewAuthValueForHTTP(authorization string) AuthValue {
+func NewAuthValueForHTTP(header http.Header) AuthValue {
 	authVal := AuthValue{
-		Authorization: authorization,
+		Authorization: header.Get("Authorization"),
 		ServerMode:    ServerModeHTTP,
 	}
 
@@ -41,18 +41,19 @@ func NewAuthValueForHTTP(authorization string) AuthValue {
 
 	if authVal.IsBasicAuth() {
 		username, password = authVal.parseBasicAuth()
-
+		authVal.Username = username
+		authVal.Password = password
 	} else if authVal.IsBearerAuth() {
-		username, password = authVal.parseBearerAuth()
+		// from oauth2
+		username = header.Get("X-Forwarded-User")
+		header.Del("X-Forwarded-User")
+		authVal.Username = username
 	}
 
 	// if authorization is not provided, use anonymous
 	if len(username) == 0 {
 		authVal.Username = "anonymous"
 		authVal.Password = ""
-	} else {
-		authVal.Username = username
-		authVal.Password = password
 	}
 
 	return authVal
@@ -122,42 +123,12 @@ func (a *AuthValue) parseBasicAuth() (string, string) {
 	return username, password
 }
 
-func (a *AuthValue) parseBearerAuth() (string, string) {
-	username := ""
-	password := ""
-	if a.IsBearerAuth() {
-		authToken := a.getAuthToken()
-		// TODO: handle JWT token properly
-		// extract userID from the token
-
-		if !strings.Contains(authToken, ":") {
-			// possibly base64 encoded string
-			decodedBearerAuthToken, err := base64.StdEncoding.DecodeString(authToken)
-			if err == nil {
-				authToken = string(decodedBearerAuthToken)
-			}
-		}
-
-		// we currently do not support bearer token
-		// just handle like basic auth for now
-		authArr := strings.Split(authToken, ":")
-		if len(authArr) > 0 {
-			username = authArr[0]
-		}
-
-		if len(authArr) > 1 {
-			password = authArr[1]
-		}
-	}
-
-	return username, password
-}
-
 // AuthForHTTP extracts the auth token from the request headers.
 func AuthForHTTP(ctx context.Context, r *http.Request) context.Context {
 	logger := log.WithFields(log.Fields{})
 
-	authVal := NewAuthValueForHTTP(r.Header.Get("Authorization"))
+	authVal := NewAuthValueForHTTP(r.Header)
+
 	logger.Infof("auth: user=%s", authVal.Username)
 	return context.WithValue(ctx, AuthKey{}, authVal)
 }

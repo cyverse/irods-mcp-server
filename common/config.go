@@ -37,6 +37,11 @@ type Config struct {
 	IRODSProxyAuth     bool   `yaml:"irods_proxy_auth,omitempty" json:"irods_proxy_auth,omitempty" envconfig:"IRODS_MCP_SVR_IRODS_PROXY_AUTH"`
 	IRODSSharedDirName string `yaml:"irods_shared_dir_name,omitempty" json:"irods_shared_dir_name,omitempty" envconfig:"IRODS_MCP_SVR_IRODS_SHARED_DIR_NAME"`
 	IRODSWebDAVURL     string `yaml:"irods_webdav_url,omitempty" json:"irods_webdav_url,omitempty" envconfig:"IRODS_MCP_SVR_IRODS_WEBDAV_URL"`
+
+	// OAuth2 / OIDC config
+	OIDCDiscoveryURL   string `yaml:"oidc_discovery_url" json:"oidc_discovery_url" envconfig:"IRODS_MCP_SVR_OIDC_DISCOVERY_URL"`
+	OAuth2ClientID     string `yaml:"oauth2_client_id" json:"oauth2_client_id" envconfig:"IRODS_MCP_SVR_OAUTH2_CLIENT_ID"`
+	OAuth2ClientSecret string `yaml:"oauth2_client_secret" json:"oauth2_client_secret" envconfig:"IRODS_MCP_SVR_OAUTH2_CLIENT_SECRET"`
 }
 
 // NewDefaultConfig returns a default config
@@ -53,6 +58,10 @@ func NewDefaultConfig() *Config {
 		IRODSProxyAuth:     false,                     // do not use proxy auth by default
 		IRODSSharedDirName: DefaultIRODSSharedDirName, // use default
 		IRODSWebDAVURL:     "",
+
+		OIDCDiscoveryURL:   "",
+		OAuth2ClientID:     "",
+		OAuth2ClientSecret: "",
 	}
 }
 

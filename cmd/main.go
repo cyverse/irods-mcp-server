@@ -90,7 +90,7 @@ func processCommand(command *cobra.Command, args []string) error {
 	return nil
 }
 
-func startHTTPServer(svr *server.MCPServer, serviceUrl string) error {
+func startHTTPServer(svr *server.MCPServer, serviceUrl string, oauth2 *common.OAuth2) error {
 	logger := log.WithFields(log.Fields{})
 
 	logger.Info("starting MCP server in HTTP mode...")
@@ -132,7 +132,13 @@ func startHTTPServer(svr *server.MCPServer, serviceUrl string) error {
 
 	mux := http.NewServeMux()
 
-	mux.Handle(streamableHttpEndpoint, streamableHttpServer)
+	if oauth2 != nil {
+		mux.HandleFunc(streamableHttpEndpoint, oauth2.RequireOAuth(streamableHttpServer))
+		mux.HandleFunc(strings.TrimRight(u.Path, "/")+"/.well-known/oauth-protected-resource", oauth2.HandleResourceMetadataURI)
+		mux.HandleFunc(strings.TrimRight(u.Path, "/")+"/.well-known/oauth-protected-resource/mcp", oauth2.HandleResourceMetadataURI)
+	} else {
+		mux.Handle(streamableHttpEndpoint, streamableHttpServer)
+	}
 	mux.Handle(sseEndpoint, sseServer)
 	mux.Handle(sseMessageEndpoint, sseServer)
 
@@ -236,9 +242,16 @@ func run(config *common.Config) error {
 	if err != nil {
 		return xerrors.Errorf("failed to initialize irods service: %w", err)
 	}
+	var oauth2 *common.OAuth2
+	if config.OIDCDiscoveryURL != "" {
+		oauth2, err = common.NewOAuth2(config.ServiceURL+"/mcp", config.OIDCDiscoveryURL, config.OAuth2ClientID, config.OAuth2ClientSecret)
+		if err != nil {
+			return xerrors.Errorf("failed to initialize OAuth2: %w", err)
+		}
+	}
 
 	if config.Remote {
-		err = startHTTPServer(svr, config.ServiceURL)
+		err = startHTTPServer(svr, config.ServiceURL, oauth2)
 		if err != nil {
 			return xerrors.Errorf("Failed to start HTTP server: %w", err)
 		}

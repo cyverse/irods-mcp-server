@@ -1,5 +1,5 @@
 remote: true
-service_url: http://:8080
+service_url: http://localhost:8080
 background: false
 debug: true
 log_path: ./irods-mcp-server.log
@@ -13,3 +13,7 @@ irods_user_password:
 irods_proxy_auth: false
 irods_shared_dir_name: shared
 irods_webdav_url: https://data.cyverse.org/dav/
+
+#oidc_discovery_url: "http://localhost:8090/realms/<FIXME>/.well-known/openid-configuration"
+#oauth2_client_id: ""
+#oauth2_client_secret: ""

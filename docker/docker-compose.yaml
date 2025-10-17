@@ -20,3 +20,29 @@ services:
       - IRODS_ZONE_NAME=iplant
       - IRODS_USER_NAME=anonymous
       - IRODS_USER_PASSWORD=
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.3.5
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+    ports:
+      # login to http://localhost:8090/admin/master/console
+      - "8090:8080"
+    command:
+      - start-dev
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health/ready" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+
+volumes:
+  keycloak_data:
+
+
+# oidc_discovery_url: http://localhost:8090/realms/<FIXME>/.well-known/openid-configuration
