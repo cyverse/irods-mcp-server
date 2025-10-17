@@ -3,3 +3,13 @@ service_url: http://:8080
 background: true
 debug: true
 log_path: /tmp/irods-mcp-server.log
+
+irods_host: data.cyverse.org
+irods_port: 1247
+irods_zone_name: iplant
+irods_user_name: anonymous
+irods_user_password:
+
+irods_proxy_auth: false
+irods_shared_dir_name: shared
+irods_webdav_url: https://data.cyverse.org/dav/
