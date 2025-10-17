@@ -50,7 +50,12 @@ func (svr *IRODSMCPServer) GetIRODSFSClientPool() *irods_common.IRODSFSClientPoo
 func (svr *IRODSMCPServer) GetIRODSAccountFromAuthValue(authValue *common.AuthValue) (*types.IRODSAccount, error) {
 	account := irods_common.GetEmptyIRODSAccount(svr.config)
 
-	if authValue.Username == "anonymous" {
+	if !authValue.IsHTTP() {
+		return account, nil
+	}
+
+	// only handle HTTP auth values below
+	if authValue.IsAnonymous() {
 		// anonymous access
 		account.ProxyUser = ""
 		account.ClientUser = authValue.Username
@@ -63,20 +68,18 @@ func (svr *IRODSMCPServer) GetIRODSAccountFromAuthValue(authValue *common.AuthVa
 	} else if len(authValue.Username) > 0 && len(authValue.Password) == 0 {
 		// empty password
 		// proxy access with the provided username
-		if svr.config.IRODSProxyAuth {
-			// do not change proxy config
-			account.ClientUser = authValue.Username
-		} else {
+		if !svr.config.IRODSProxyAuth {
 			return nil, xerrors.Errorf("user and password must be set")
 		}
-	} else {
-		// empty username and password
-		if authValue.ServerMode == "stdio" {
-			// use the account in configuration
-		} else {
-			// should not happen
-			return nil, xerrors.Errorf("invalid auth value with empty username and password")
+
+		if authValue.IsBasicAuth() {
+			return nil, xerrors.Errorf("proxy auth is not supported with basic auth")
 		}
+
+		// we only support bearer auth for proxy user access
+		account.ClientUser = authValue.Username
+	} else {
+		return nil, xerrors.Errorf("invalid auth value with empty username and password")
 	}
 
 	account.FixAuthConfiguration()
