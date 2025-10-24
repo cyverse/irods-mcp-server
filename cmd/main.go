@@ -243,15 +243,15 @@ func run(config *common.Config) error {
 		return xerrors.Errorf("failed to initialize irods service: %w", err)
 	}
 	var oauth2 *common.OAuth2
-	if config.OIDCDiscoveryURL != "" {
-		oauth2, err = common.NewOAuth2(config.ServiceURL+"/mcp", config.OIDCDiscoveryURL, config.OAuth2ClientID, config.OAuth2ClientSecret)
+	if config.IsOAuth2Enabled() {
+		oauth2, err = common.NewOAuth2(config.GetPublicServiceURL()+"/mcp", config.OIDCDiscoveryURL, config.OAuth2ClientID, config.OAuth2ClientSecret)
 		if err != nil {
 			return xerrors.Errorf("failed to initialize OAuth2: %w", err)
 		}
 	}
 
 	if config.Remote {
-		err = startHTTPServer(svr, config.ServiceURL, oauth2)
+		err = startHTTPServer(svr, config.GetServiceURL(), oauth2)
 		if err != nil {
 			return xerrors.Errorf("Failed to start HTTP server: %w", err)
 		}

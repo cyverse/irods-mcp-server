@@ -24,11 +24,12 @@ const (
 
 // Config holds the parameters list which can be configured
 type Config struct {
-	Remote     bool   `yaml:"remote" json:"remote" envconfig:"IRODS_MCP_SVR_REMOTE"`
-	ServiceURL string `yaml:"service_url" json:"service_url" envconfig:"IRODS_MCP_SVR_SERVICE_URL"`
-	Background bool   `yaml:"background,omitempty" json:"background,omitempty" envconfig:"IRODS_MCP_SVR_BACKGROUND"`
-	Debug      bool   `yaml:"debug" json:"debug" envconfig:"IRODS_MCP_SVR_DEBUG"`
-	LogPath    string `yaml:"log_path,omitempty" json:"log_path,omitempty" envconfig:"IRODS_MCP_SVR_LOG_PATH"`
+	Remote           bool   `yaml:"remote" json:"remote" envconfig:"IRODS_MCP_SVR_REMOTE"`
+	ServiceURL       string `yaml:"service_url" json:"service_url" envconfig:"IRODS_MCP_SVR_SERVICE_URL"`
+	PublicServiceURL string `yaml:"public_service_url,omitempty" json:"public_service_url,omitempty" envconfig:"IRODS_MCP_SVR_PUBLIC_SERVICE_URL"`
+	Background       bool   `yaml:"background,omitempty" json:"background,omitempty" envconfig:"IRODS_MCP_SVR_BACKGROUND"`
+	Debug            bool   `yaml:"debug" json:"debug" envconfig:"IRODS_MCP_SVR_DEBUG"`
+	LogPath          string `yaml:"log_path,omitempty" json:"log_path,omitempty" envconfig:"IRODS_MCP_SVR_LOG_PATH"`
 
 	// IRODS config
 	irods_config.Config `yaml:",inline" json:",inline"`
@@ -46,12 +47,13 @@ type Config struct {
 
 // NewDefaultConfig returns a default config
 func NewDefaultConfig() *Config {
-	return &Config{
-		Remote:     false,
-		ServiceURL: DefaultServiceURL, // use default
-		Background: false,
-		Debug:      false,
-		LogPath:    "", // use default
+	config := &Config{
+		Remote:           false,
+		ServiceURL:       DefaultServiceURL, // use default
+		PublicServiceURL: DefaultServiceURL, // use default
+		Background:       false,
+		Debug:            false,
+		LogPath:          "", // use default
 
 		Config: *irods_config.GetDefaultConfig(),
 
@@ -63,6 +65,11 @@ func NewDefaultConfig() *Config {
 		OAuth2ClientID:     "",
 		OAuth2ClientSecret: "",
 	}
+
+	config.Config.Port = DefaultIRODSPort // use default
+	config.Config.Username = "anonymous"  // use anonymous user by default
+
+	return config
 }
 
 // NewConfigFromFile creates Config from file
@@ -190,6 +197,18 @@ func (config *Config) GetServiceURL() string {
 	}
 
 	return DefaultServiceURL
+}
+
+func (config *Config) GetPublicServiceURL() string {
+	if len(config.PublicServiceURL) > 0 {
+		return config.PublicServiceURL
+	}
+
+	return config.GetServiceURL()
+}
+
+func (config *Config) IsOAuth2Enabled() bool {
+	return len(config.OIDCDiscoveryURL) > 0 && len(config.OAuth2ClientID) > 0 && len(config.OAuth2ClientSecret) > 0
 }
 
 // MakeLogDir makes a log dir required
