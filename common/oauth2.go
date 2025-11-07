@@ -266,6 +266,7 @@ func (o *OAuth2) HandleResourceMetadataURI(w http.ResponseWriter, r *http.Reques
 			"header",
 		},
 	}
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	err := json.NewEncoder(w).Encode(metadata)
 	if err != nil {
