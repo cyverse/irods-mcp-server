@@ -25,6 +25,12 @@ type SearchFilesOutput struct {
 	MatchingEntries []EntryWithAccess `json:"matching_entries"`
 }
 
+type SearchFilesByAVUOutput struct {
+	SearchAttribute string            `json:"search_attribute"`
+	SearchValue     string            `json:"search_value"`
+	MatchingEntries []EntryWithAccess `json:"matching_entries"`
+}
+
 type GetFileInfoOutput struct {
 	MIMEType          string                                    `json:"mime_type"`
 	EntryInfo         *irodsclient_fs.Entry                     `json:"entry_info"`

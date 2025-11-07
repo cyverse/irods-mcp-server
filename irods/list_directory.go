@@ -66,10 +66,12 @@ func (t *ListDirectory) GetAccessiblePaths(authValue *common.AuthValue) []string
 	sharedPath := irods_common.GetSharedPath(t.config, account)
 
 	paths := []string{
+		sharedPath,
 		sharedPath + "/*",
 	}
 
 	if !account.IsAnonymousUser() {
+		paths = append(paths, homePath)
 		paths = append(paths, homePath+"/*")
 	}
 

@@ -1,21 +1,27 @@
 package common
 
 import (
+	"path"
 	"strings"
 )
 
 func IsAccessAllowed(irodsPath string, allowedPaths []string) bool {
-	for _, allowedPath := range allowedPaths {
-		// exact match
-		if irodsPath == allowedPath {
-			return true
-		}
+	irodsPath = path.Clean(irodsPath)
 
-		// wildcard match (*)
+	for _, allowedPath := range allowedPaths {
+		//fmt.Printf("Checking access: irodsPath=%q, allowedPath=%q\n", irodsPath, allowedPath)
+
 		if strings.HasSuffix(allowedPath, "/*") {
-			if irodsPath == strings.TrimSuffix(allowedPath, "/*") {
+			baseDir := strings.TrimSuffix(allowedPath, "/*")
+
+			if strings.HasPrefix(irodsPath, baseDir+"/") {
+				//fmt.Printf("Access allowed (directory wildcard): irodsPath=%q, allowedPath=%q\n", irodsPath, allowedPath)
 				return true
-			} else if strings.HasPrefix(irodsPath, strings.TrimSuffix(allowedPath, "*")) {
+			}
+		} else {
+			matched, _ := path.Match(allowedPath, irodsPath)
+			if matched {
+				//fmt.Printf("Access allowed: irodsPath=%q, allowedPath=%q\n", irodsPath, allowedPath)
 				return true
 			}
 		}

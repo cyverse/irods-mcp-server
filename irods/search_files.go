@@ -36,8 +36,8 @@ func (t *SearchFiles) GetName() string {
 
 func (t *SearchFiles) GetDescription() string {
 	return `Recursively search for files (data-objects) and directories (collections) matching a pattern.
-	The specified search root path must be an iRODS path. Use unix wildcards, such as '?' and '*', for the search pattern. The output is in JSON format.
-	The output contains matching entries.`
+	The specified search root path must be an iRODS path. Use unix wildcards, such as '?' and '*', for the search pattern. 
+	The matching entries are returned in JSON format.`
 }
 
 func (t *SearchFiles) GetTool() mcp.Tool {
@@ -70,6 +70,7 @@ func (t *SearchFiles) GetAccessiblePaths(authValue *common.AuthValue) []string {
 	}
 
 	if !account.IsAnonymousUser() {
+		paths = append(paths, homePath)
 		paths = append(paths, homePath+"/*")
 	}
 

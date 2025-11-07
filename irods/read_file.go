@@ -74,6 +74,7 @@ func (t *ReadFile) GetAccessiblePaths(authValue *common.AuthValue) []string {
 	}
 
 	if !account.IsAnonymousUser() {
+		paths = append(paths, homePath)
 		paths = append(paths, homePath+"/*")
 	}
 
