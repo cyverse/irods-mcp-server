@@ -41,6 +41,11 @@ type GetFileInfoOutput struct {
 	Metadata          []*irodsclient_types.IRODSMeta            `json:"metadata,omitempty"`
 }
 
+type TicketWithRestrictions struct {
+	Ticket       *irodsclient_types.IRODSTicket          `json:"ticket"`
+	Restrictions *irodsclient_fs.IRODSTicketRestrictions `json:"restrictions,omitempty"`
+}
+
 type AllowedAPIs struct {
 	Path        string   `json:"path"`
 	ResourceURI string   `json:"resource_uri"`

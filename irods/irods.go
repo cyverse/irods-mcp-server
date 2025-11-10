@@ -116,6 +116,8 @@ func (svr *IRODSMCPServer) registerTools() error {
 	svr.addTool(NewSearchFilesByAVU(svr))
 	svr.addTool(NewGetFileInfo(svr))
 	svr.addTool(NewReadFile(svr))
+	svr.addTool(NewGetTicketInfo(svr))
+	svr.addTool(NewListTickets(svr))
 	return nil
 }
 
