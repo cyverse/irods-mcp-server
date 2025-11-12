@@ -34,7 +34,8 @@ func (t *GetTicketInfo) GetName() string {
 }
 
 func (t *GetTicketInfo) GetDescription() string {
-	return `Get information about a specific iRODS ticket, such as its ID and expiration time, in JSON format`
+	return `Get information about a specific iRODS ticket, such as its ID and expiration time, in JSON format.
+	Anonymous users are not allowed to get ticket information.`
 }
 
 func (t *GetTicketInfo) GetTool() mcp.Tool {
@@ -69,6 +70,11 @@ func (t *GetTicketInfo) Handler(ctx context.Context, request mcp.CallToolRequest
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to get auth value: %w", err)
+	}
+
+	if authValue.IsAnonymous() {
+		outputErr := xerrors.Errorf("anonymous user is not allowed to list tickets")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	// make a irods filesystem client
