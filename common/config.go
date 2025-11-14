@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"golang.org/x/xerrors"
 	yaml "gopkg.in/yaml.v2"
 
+	"github.com/cockroachdb/errors"
 	irods_config "github.com/cyverse/go-irodsclient/config"
 	"github.com/kelseyhightower/envconfig"
 	log "github.com/sirupsen/logrus"
@@ -77,14 +77,14 @@ func NewConfigFromFile(existingConfig *Config, filePath string) (*Config, error)
 	st, err := os.Stat(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, xerrors.Errorf("file %q does not exist: %w", filePath, err)
+			return nil, errors.Wrapf(err, "file %q does not exist", filePath)
 		}
 
-		return nil, xerrors.Errorf("failed to stat file %q: %w", filePath, err)
+		return nil, errors.Wrapf(err, "failed to stat file %q", filePath)
 	}
 
 	if st.IsDir() {
-		return nil, xerrors.Errorf("path %q is a directory: %w", filePath, err)
+		return nil, errors.Errorf("path %q is a directory", filePath)
 	}
 
 	ext := filepath.Ext(filePath)
@@ -104,12 +104,12 @@ func NewConfigFromYAMLFile(existingConfig *Config, yamlPath string) (*Config, er
 
 	yamlBytes, err := os.ReadFile(yamlPath)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to read YAML file %q: %w", yamlPath, err)
+		return nil, errors.Wrapf(err, "failed to read YAML file %q", yamlPath)
 	}
 
 	err = yaml.Unmarshal(yamlBytes, &cfg)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to unmarshal YAML file %q to config: %w", yamlPath, err)
+		return nil, errors.Wrapf(err, "failed to unmarshal YAML file %q to config", yamlPath)
 	}
 
 	return cfg, nil
@@ -124,7 +124,7 @@ func NewConfigFromYAML(existingConfig *Config, yamlBytes []byte) (*Config, error
 
 	err := yaml.Unmarshal(yamlBytes, cfg)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to unmarshal yaml into config: %w", err)
+		return nil, errors.Wrapf(err, "failed to unmarshal yaml into config")
 	}
 
 	return cfg, nil
@@ -139,12 +139,12 @@ func NewConfigFromJSONFile(existingConfig *Config, jsonPath string) (*Config, er
 
 	jsonBytes, err := os.ReadFile(jsonPath)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to read YAML file %q: %w", jsonPath, err)
+		return nil, errors.Wrapf(err, "failed to read YAML file %q", jsonPath)
 	}
 
 	err = json.Unmarshal(jsonBytes, cfg)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to unmarshal JSON file %q to config: %w", jsonPath, err)
+		return nil, errors.Wrapf(err, "failed to unmarshal JSON file %q to config", jsonPath)
 	}
 
 	return cfg, nil
@@ -159,7 +159,7 @@ func NewConfigFromJSON(existingConfig *Config, jsonBytes []byte) (*Config, error
 
 	err := json.Unmarshal(jsonBytes, cfg)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to unmarshal json into config: %w", err)
+		return nil, errors.Wrapf(err, "failed to unmarshal json into config")
 	}
 
 	return cfg, nil
@@ -174,7 +174,7 @@ func NewConfigFromEnv(existingConfig *Config) (*Config, error) {
 
 	err := envconfig.Process("", cfg)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to read config from environmental variables: %w", err)
+		return nil, errors.Wrapf(err, "failed to read config from environmental variables")
 	}
 
 	return cfg, nil
@@ -230,7 +230,7 @@ func (config *Config) MakeLogDir() error {
 // makeDir makes a dir for use
 func (config *Config) makeDir(path string) error {
 	if len(path) == 0 {
-		return xerrors.Errorf("failed to create a dir with empty path")
+		return errors.Errorf("failed to create a dir with empty path")
 	}
 
 	dirInfo, err := os.Stat(path)
@@ -239,22 +239,22 @@ func (config *Config) makeDir(path string) error {
 			// make
 			mkdirErr := os.MkdirAll(path, 0775)
 			if mkdirErr != nil {
-				return xerrors.Errorf("making a dir %q error: %w", path, mkdirErr)
+				return errors.Wrapf(mkdirErr, "making a dir %q error", path)
 			}
 
 			return nil
 		}
 
-		return xerrors.Errorf("stating a dir %q error: %w", path, err)
+		return errors.Wrapf(err, "stating a dir %q error", path)
 	}
 
 	if !dirInfo.IsDir() {
-		return xerrors.Errorf("a file %q exist, not a directory", path)
+		return errors.Errorf("a file %q exist, not a directory", path)
 	}
 
 	dirPerm := dirInfo.Mode().Perm()
 	if dirPerm&0200 != 0200 {
-		return xerrors.Errorf("a dir %q exist, but does not have the write permission", path)
+		return errors.Errorf("a dir %q exist, but does not have the write permission", path)
 	}
 
 	return nil
@@ -264,20 +264,20 @@ func (config *Config) makeDir(path string) error {
 func (config *Config) Validate() error {
 	if config.Remote {
 		if !strings.HasPrefix(config.ServiceURL, "http://") && !strings.HasPrefix(config.ServiceURL, "https://") {
-			return xerrors.Errorf("service URL must start with http:// or https://")
+			return errors.Errorf("service URL must start with http:// or https://")
 		}
 	}
 
 	if config.IRODSProxyAuth {
 		if len(config.Config.Username) == 0 || len(config.Config.Password) == 0 {
-			return xerrors.Errorf("user and password must be set when proxy auth is enabled")
+			return errors.Errorf("user and password must be set when proxy auth is enabled")
 		}
 	}
 
 	account := config.Config.ToIRODSAccount()
 	err := account.Validate()
 	if err != nil {
-		return xerrors.Errorf("invalid iRODS account configuration: %w", err)
+		return errors.Wrapf(err, "invalid iRODS account configuration")
 	}
 
 	return nil

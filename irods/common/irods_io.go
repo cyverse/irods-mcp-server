@@ -4,7 +4,7 @@ import (
 	"io"
 
 	irodsclient_fs "github.com/cyverse/go-irodsclient/fs"
-	"golang.org/x/xerrors"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -17,7 +17,7 @@ const (
 func ReadDataObject(filesystem *irodsclient_fs.FileSystem, sourcePath string, maxReadLen int64) ([]byte, error) {
 	handle, err := filesystem.OpenFile(sourcePath, "", "r")
 	if err != nil {
-		return nil, xerrors.Errorf("failed to open file %q: %w", sourcePath, err)
+		return nil, errors.Wrapf(err, "failed to open file %q", sourcePath)
 	}
 	defer handle.Close()
 
@@ -30,7 +30,7 @@ func ReadDataObject(filesystem *irodsclient_fs.FileSystem, sourcePath string, ma
 			return buffer[:n], nil
 		}
 
-		return nil, xerrors.Errorf("failed to read file %q: %w", sourcePath, err)
+		return nil, errors.Wrapf(err, "failed to read file %q", sourcePath)
 	}
 
 	return buffer[:n], nil

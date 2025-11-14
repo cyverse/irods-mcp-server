@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/cockroachdb/errors"
 	irodsclient_fs "github.com/cyverse/go-irodsclient/fs"
 	"github.com/cyverse/irods-mcp-server/common"
 	irods_common "github.com/cyverse/irods-mcp-server/irods/common"
 	"github.com/cyverse/irods-mcp-server/irods/model"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"golang.org/x/xerrors"
 )
 
 const (
@@ -82,19 +82,19 @@ func (t *SearchFiles) Handler(ctx context.Context, request mcp.CallToolRequest) 
 
 	inputPath, ok := arguments["path"].(string)
 	if !ok {
-		return nil, xerrors.Errorf("failed to get path from arguments")
+		return nil, errors.Errorf("failed to get path from arguments")
 	}
 
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to get auth value: %w", err)
+		return nil, errors.Wrapf(err, "failed to get auth value")
 	}
 
 	// make a irods filesystem client
 	fs, err := t.mcpServer.GetIRODSFSClientFromAuthValue(&authValue)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to create a irods fs client: %w", err)
+		return nil, errors.Wrapf(err, "failed to create a irods fs client")
 	}
 
 	irodsPath := irods_common.MakeIRODSPath(t.config, fs.GetAccount(), inputPath)
@@ -107,19 +107,19 @@ func (t *SearchFiles) Handler(ctx context.Context, request mcp.CallToolRequest) 
 		irodsRootPath = irods_common.GetDir(irodsRootPath)
 
 		if !irods_common.IsAccessAllowed(irodsRootPath, t.GetAccessiblePaths(&authValue)) {
-			outputErr := xerrors.Errorf("%q request is not permitted for path %q", t.GetName(), irodsRootPath)
+			outputErr := errors.Errorf("%q request is not permitted for path %q", t.GetName(), irodsRootPath)
 			return irods_common.OutputMCPError(outputErr)
 		}
 	} else {
 		// no wildcard return error
-		outputErr := xerrors.Errorf("no wildcard is in the path %q", irodsPath)
+		outputErr := errors.Errorf("no wildcard is in the path %q", irodsPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 
 	// search
 	content, err := t.search(fs, irodsPath)
 	if err != nil {
-		outputErr := xerrors.Errorf("failed to search files (data-objects) or directories (collections) matching %q: %w", irodsPath, err)
+		outputErr := errors.Wrapf(err, "failed to search files (data-objects) or directories (collections) matching %q", irodsPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 
@@ -131,12 +131,12 @@ func (t *SearchFiles) search(fs *irodsclient_fs.FileSystem, searchPath string) (
 
 	dirEntries, err := fs.SearchDirUnixWildcard(searchPath)
 	if err != nil {
-		return "", xerrors.Errorf("failed to search directories (collections) %q: %w", searchPath, err)
+		return "", errors.Wrapf(err, "failed to search directories (collections) %q", searchPath)
 	}
 
 	fileEntries, err := fs.SearchFileUnixWildcard(searchPath)
 	if err != nil {
-		return "", xerrors.Errorf("failed to search files (data-objects) %q: %w", searchPath, err)
+		return "", errors.Wrapf(err, "failed to search files (data-objects) %q", searchPath)
 	}
 
 	for _, dirEntry := range dirEntries {
@@ -166,7 +166,7 @@ func (t *SearchFiles) search(fs *irodsclient_fs.FileSystem, searchPath string) (
 
 	jsonBytes, err := json.Marshal(searchFilesOutput)
 	if err != nil {
-		return "", xerrors.Errorf("failed to marshal JSON: %w", err)
+		return "", errors.Wrapf(err, "failed to marshal JSON")
 	}
 
 	return string(jsonBytes), nil

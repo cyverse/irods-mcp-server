@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/cockroachdb/errors"
 	irodsclient_fs "github.com/cyverse/go-irodsclient/fs"
 	"github.com/cyverse/irods-mcp-server/common"
 	irods_common "github.com/cyverse/irods-mcp-server/irods/common"
 	"github.com/cyverse/irods-mcp-server/irods/model"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"golang.org/x/xerrors"
 )
 
 const (
@@ -85,24 +85,24 @@ func (t *SearchFilesByAVU) Handler(ctx context.Context, request mcp.CallToolRequ
 
 	attribute, ok := arguments["attribute"].(string)
 	if !ok {
-		return nil, xerrors.Errorf("failed to get attribute from arguments")
+		return nil, errors.Errorf("failed to get attribute from arguments")
 	}
 
 	value, ok := arguments["value"].(string)
 	if !ok {
-		return nil, xerrors.Errorf("failed to get value from arguments")
+		return nil, errors.Errorf("failed to get value from arguments")
 	}
 
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to get auth value: %w", err)
+		return nil, errors.Wrapf(err, "failed to get auth value")
 	}
 
 	// make a irods filesystem client
 	fs, err := t.mcpServer.GetIRODSFSClientFromAuthValue(&authValue)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to create a irods fs client: %w", err)
+		return nil, errors.Wrapf(err, "failed to create a irods fs client")
 	}
 
 	accessiblePaths := t.GetAccessiblePaths(&authValue)
@@ -110,7 +110,7 @@ func (t *SearchFilesByAVU) Handler(ctx context.Context, request mcp.CallToolRequ
 	// search
 	content, err := t.search(fs, accessiblePaths, attribute, value)
 	if err != nil {
-		outputErr := xerrors.Errorf("failed to search files (data-objects) or directories (collections) matching attribute %q and value %q: %w", attribute, value, err)
+		outputErr := errors.Wrapf(err, "failed to search files (data-objects) or directories (collections) matching attribute %q and value %q", attribute, value)
 		return irods_common.OutputMCPError(outputErr)
 	}
 
@@ -122,7 +122,7 @@ func (t *SearchFilesByAVU) search(fs *irodsclient_fs.FileSystem, accessiblePaths
 
 	entries, err := fs.SearchByMeta(attribute, value)
 	if err != nil {
-		return "", xerrors.Errorf("failed to search by AVU %q=%q: %w", attribute, value, err)
+		return "", errors.Wrapf(err, "failed to search by AVU %q=%q", attribute, value)
 	}
 
 	for _, entry := range entries {
@@ -147,7 +147,7 @@ func (t *SearchFilesByAVU) search(fs *irodsclient_fs.FileSystem, accessiblePaths
 
 	jsonBytes, err := json.Marshal(searchFilesOutput)
 	if err != nil {
-		return "", xerrors.Errorf("failed to marshal JSON: %w", err)
+		return "", errors.Wrapf(err, "failed to marshal JSON")
 	}
 
 	return string(jsonBytes), nil

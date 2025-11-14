@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/cockroachdb/errors"
 	irodsclient_fs "github.com/cyverse/go-irodsclient/fs"
 	"github.com/cyverse/irods-mcp-server/common"
 	irods_common "github.com/cyverse/irods-mcp-server/irods/common"
 	"github.com/cyverse/irods-mcp-server/irods/model"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"golang.org/x/xerrors"
 )
 
 const (
@@ -63,30 +63,30 @@ func (t *GetTicketInfo) Handler(ctx context.Context, request mcp.CallToolRequest
 
 	inputName, ok := arguments["name"].(string)
 	if !ok {
-		return nil, xerrors.Errorf("failed to get name from arguments")
+		return nil, errors.Errorf("failed to get name from arguments")
 	}
 
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to get auth value: %w", err)
+		return nil, errors.Wrapf(err, "failed to get auth value")
 	}
 
 	if authValue.IsAnonymous() {
-		outputErr := xerrors.Errorf("anonymous user is not allowed to list tickets")
+		outputErr := errors.Errorf("anonymous user is not allowed to list tickets")
 		return irods_common.OutputMCPError(outputErr)
 	}
 
 	// make a irods filesystem client
 	fs, err := t.mcpServer.GetIRODSFSClientFromAuthValue(&authValue)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to create a irods fs client: %w", err)
+		return nil, errors.Wrapf(err, "failed to create a irods fs client")
 	}
 
 	// get
 	content, err := t.getTicketInfo(fs, inputName)
 	if err != nil {
-		outputErr := xerrors.Errorf("failed to get ticket info for %q: %w", inputName, err)
+		outputErr := errors.Wrapf(err, "failed to get ticket info for %q", inputName)
 		return irods_common.OutputMCPError(outputErr)
 	}
 
@@ -96,12 +96,12 @@ func (t *GetTicketInfo) Handler(ctx context.Context, request mcp.CallToolRequest
 func (t *GetTicketInfo) getTicketInfo(fs *irodsclient_fs.FileSystem, ticketName string) (string, error) {
 	ticket, err := fs.GetTicket(ticketName)
 	if err != nil {
-		return "", xerrors.Errorf("failed to get ticket: %w", err)
+		return "", errors.Wrapf(err, "failed to get ticket")
 	}
 
 	restrictions, err := fs.GetTicketRestrictions(ticket.ID)
 	if err != nil {
-		return "", xerrors.Errorf("failed to get ticket restrictions for %q: %w", ticket.Name, err)
+		return "", errors.Wrapf(err, "failed to get ticket restrictions for %q", ticket.Name)
 	}
 
 	outputTicket := model.TicketWithRestrictions{
@@ -111,7 +111,7 @@ func (t *GetTicketInfo) getTicketInfo(fs *irodsclient_fs.FileSystem, ticketName 
 
 	jsonBytes, err := json.Marshal(outputTicket)
 	if err != nil {
-		return "", xerrors.Errorf("failed to marshal JSON: %w", err)
+		return "", errors.Wrapf(err, "failed to marshal JSON")
 	}
 
 	return string(jsonBytes), nil

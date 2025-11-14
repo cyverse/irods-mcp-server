@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/cockroachdb/errors"
 	"github.com/cyverse/irods-mcp-server/common"
 	irods_common "github.com/cyverse/irods-mcp-server/irods/common"
 	"github.com/cyverse/irods-mcp-server/irods/model"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"golang.org/x/xerrors"
 )
 
 const (
@@ -52,12 +52,12 @@ func (t *ListAllowedDirectories) Handler(ctx context.Context, request mcp.CallTo
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to get auth value: %w", err)
+		return nil, errors.Wrapf(err, "failed to get auth value")
 	}
 
 	content, err := t.listAllowedDirectories(&authValue)
 	if err != nil {
-		outputErr := xerrors.Errorf("failed to list allowed directories (collections) and APIs: %w", err)
+		outputErr := errors.Wrapf(err, "failed to list allowed directories (collections) and APIs")
 		return irods_common.OutputMCPError(outputErr)
 	}
 
@@ -102,7 +102,7 @@ func (t *ListAllowedDirectories) listAllowedDirectories(authValue *common.AuthVa
 
 	jsonBytes, err := json.Marshal(listAllowedDirectoriesOutput)
 	if err != nil {
-		return "", xerrors.Errorf("failed to marshal JSON: %w", err)
+		return "", errors.Wrapf(err, "failed to marshal JSON")
 	}
 
 	return string(jsonBytes), nil

@@ -1,12 +1,12 @@
 package irods
 
 import (
+	"github.com/cockroachdb/errors"
 	irodsclient_fs "github.com/cyverse/go-irodsclient/fs"
 	"github.com/cyverse/go-irodsclient/irods/types"
 	"github.com/cyverse/irods-mcp-server/common"
 	irods_common "github.com/cyverse/irods-mcp-server/irods/common"
 	"github.com/mark3labs/mcp-go/server"
-	"golang.org/x/xerrors"
 )
 
 type IRODSMCPServer struct {
@@ -69,17 +69,17 @@ func (svr *IRODSMCPServer) GetIRODSAccountFromAuthValue(authValue *common.AuthVa
 		// empty password
 		// proxy access with the provided username
 		if !svr.config.IRODSProxyAuth {
-			return nil, xerrors.Errorf("user and password must be set")
+			return nil, errors.Errorf("user and password must be set")
 		}
 
 		if authValue.IsBasicAuth() {
-			return nil, xerrors.Errorf("proxy auth is not supported with basic auth")
+			return nil, errors.Errorf("proxy auth is not supported with basic auth")
 		}
 
 		// we only support bearer auth for proxy user access
 		account.ClientUser = authValue.Username
 	} else {
-		return nil, xerrors.Errorf("invalid auth value with empty username and password")
+		return nil, errors.Errorf("invalid auth value with empty username and password")
 	}
 
 	account.FixAuthConfiguration()

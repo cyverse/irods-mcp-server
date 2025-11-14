@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/cockroachdb/errors"
 	irodsclient_fs "github.com/cyverse/go-irodsclient/fs"
 	irodsclient_types "github.com/cyverse/go-irodsclient/irods/types"
 	"github.com/cyverse/irods-mcp-server/common"
@@ -12,7 +13,6 @@ import (
 	"github.com/cyverse/irods-mcp-server/irods/model"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"golang.org/x/xerrors"
 )
 
 const (
@@ -88,7 +88,7 @@ func (t *DirectoryTree) Handler(ctx context.Context, request mcp.CallToolRequest
 
 	inputPath, ok := arguments["path"].(string)
 	if !ok {
-		return nil, xerrors.Errorf("failed to get path from arguments")
+		return nil, errors.Errorf("failed to get path from arguments")
 	}
 
 	inputDepthFloat, ok := arguments["depth"].(float64)
@@ -107,20 +107,20 @@ func (t *DirectoryTree) Handler(ctx context.Context, request mcp.CallToolRequest
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to get auth value: %w", err)
+		return nil, errors.Wrapf(err, "failed to get auth value")
 	}
 
 	// make a irods filesystem client
 	fs, err := t.mcpServer.GetIRODSFSClientFromAuthValue(&authValue)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to create a irods fs client: %w", err)
+		return nil, errors.Wrapf(err, "failed to create a irods fs client")
 	}
 
 	irodsPath := irods_common.MakeIRODSPath(t.config, fs.GetAccount(), inputPath)
 
 	// check permission
 	if !irods_common.IsAccessAllowed(irodsPath, t.GetAccessiblePaths(&authValue)) {
-		outputErr := xerrors.Errorf("%q request is not permitted for path %q", t.GetName(), irodsPath)
+		outputErr := errors.Errorf("%q request is not permitted for path %q", t.GetName(), irodsPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 
@@ -128,23 +128,23 @@ func (t *DirectoryTree) Handler(ctx context.Context, request mcp.CallToolRequest
 	sourceEntry, err := fs.Stat(irodsPath)
 	if err != nil {
 		if !irodsclient_types.IsFileNotFoundError(err) {
-			outputErr := xerrors.Errorf("failed to find a directory (collection) %q: %w", irodsPath, err)
+			outputErr := errors.Wrapf(err, "failed to find a directory (collection) %q", irodsPath)
 			return irods_common.OutputMCPError(outputErr)
 		}
 
-		outputErr := xerrors.Errorf("failed to stat %q: %w", irodsPath, err)
+		outputErr := errors.Wrapf(err, "failed to stat %q", irodsPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 
 	if !sourceEntry.IsDir() {
-		outputErr := xerrors.Errorf("path %q is not a directory (collection)", irodsPath)
+		outputErr := errors.Errorf("path %q is not a directory (collection)", irodsPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 
 	// collection
 	content, err := t.listCollectionRecursively(fs, sourceEntry, inputDepth)
 	if err != nil {
-		outputErr := xerrors.Errorf("failed to list a directory (collection) %q: %w", irodsPath, err)
+		outputErr := errors.Wrapf(err, "failed to list a directory (collection) %q", irodsPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 
@@ -154,7 +154,7 @@ func (t *DirectoryTree) Handler(ctx context.Context, request mcp.CallToolRequest
 func (t *DirectoryTree) listCollectionRecursively(fs *irodsclient_fs.FileSystem, sourceEntry *irodsclient_fs.Entry, maxDepth int) (string, error) {
 	outputEntries, err := t.listCollectionRecursivelyInternal(fs, sourceEntry, 1, maxDepth)
 	if err != nil {
-		return "", xerrors.Errorf("failed to list directory (collection) recursively %q: %w", sourceEntry.Path, err)
+		return "", errors.Wrapf(err, "failed to list directory (collection) recursively %q", sourceEntry.Path)
 	}
 
 	listDirectoryOutput := model.ListDirectoryOutput{
@@ -166,7 +166,7 @@ func (t *DirectoryTree) listCollectionRecursively(fs *irodsclient_fs.FileSystem,
 
 	jsonBytes, err := json.Marshal(listDirectoryOutput)
 	if err != nil {
-		return "", xerrors.Errorf("failed to marshal JSON: %w", err)
+		return "", errors.Wrapf(err, "failed to marshal JSON")
 	}
 
 	return string(jsonBytes), nil
@@ -177,7 +177,7 @@ func (t *DirectoryTree) listCollectionRecursivelyInternal(fs *irodsclient_fs.Fil
 
 	dirEntries, err := fs.List(sourceEntry.Path)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to list directory (collection) %q: %w", sourceEntry.Path, err)
+		return nil, errors.Wrapf(err, "failed to list directory (collection) %q", sourceEntry.Path)
 	}
 
 	for _, dirEntry := range dirEntries {
@@ -185,7 +185,7 @@ func (t *DirectoryTree) listCollectionRecursivelyInternal(fs *irodsclient_fs.Fil
 		if dirEntry.IsDir() && curDepth+1 <= maxDepth {
 			subEntries, err = t.listCollectionRecursivelyInternal(fs, dirEntry, curDepth+1, maxDepth)
 			if err != nil {
-				return nil, xerrors.Errorf("failed to list directory (collection) recursively %q: %w", dirEntry.Path, err)
+				return nil, errors.Wrapf(err, "failed to list directory (collection) recursively %q", dirEntry.Path)
 			}
 		}
 

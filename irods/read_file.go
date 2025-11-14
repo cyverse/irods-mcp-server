@@ -5,12 +5,12 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	"github.com/cockroachdb/errors"
 	irodsclient_fs "github.com/cyverse/go-irodsclient/fs"
 	"github.com/cyverse/irods-mcp-server/common"
 	irods_common "github.com/cyverse/irods-mcp-server/irods/common"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"golang.org/x/xerrors"
 )
 
 const (
@@ -86,7 +86,7 @@ func (t *ReadFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*m
 
 	inputPath, ok := arguments["path"].(string)
 	if !ok {
-		return nil, xerrors.Errorf("failed to get path from arguments")
+		return nil, errors.Errorf("failed to get path from arguments")
 	}
 
 	inputLengthFloat, ok := arguments["length"].(float64)
@@ -98,13 +98,13 @@ func (t *ReadFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*m
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to get auth value: %w", err)
+		return nil, errors.Wrapf(err, "failed to get auth value")
 	}
 
 	// make a irods filesystem client
 	fs, err := t.mcpServer.GetIRODSFSClientFromAuthValue(&authValue)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to create a irods fs client: %w", err)
+		return nil, errors.Wrapf(err, "failed to create a irods fs client")
 	}
 
 	irodsPath := irods_common.MakeIRODSPath(t.config, fs.GetAccount(), inputPath)
@@ -118,20 +118,20 @@ func (t *ReadFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*m
 
 	// check permission
 	if !irods_common.IsAccessAllowed(irodsPath, t.GetAccessiblePaths(&authValue)) {
-		outputErr := xerrors.Errorf("%q request is not permitted for path %q", t.GetName(), irodsPath)
+		outputErr := errors.Errorf("%q request is not permitted for path %q", t.GetName(), irodsPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 
 	// Get file info
 	entry, err := fs.Stat(irodsPath)
 	if err != nil {
-		outputErr := xerrors.Errorf("failed to stat file info for %q: %w", irodsPath, err)
+		outputErr := errors.Wrapf(err, "failed to stat file info for %q", irodsPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 
 	content, err := t.readFile(fs, entry, int64(inputLength))
 	if err != nil {
-		outputErr := xerrors.Errorf("failed to read file (data-object) for %q: %w", irodsPath, err)
+		outputErr := errors.Wrapf(err, "failed to read file (data-object) for %q", irodsPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 
@@ -165,7 +165,7 @@ func (t *ReadFile) readFile(fs *irodsclient_fs.FileSystem, sourceEntry *irodscli
 	// read the file content
 	content, err := irods_common.ReadDataObject(fs, sourceEntry.Path, readLength)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to read file (data-object) %q: %w", sourceEntry.Path, err)
+		return nil, errors.Wrapf(err, "failed to read file (data-object) %q", sourceEntry.Path)
 	}
 
 	mimeType := irods_common.DetectMimeType(sourceEntry.Path, content)

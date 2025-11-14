@@ -9,13 +9,13 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/cockroachdb/errors"
 	"github.com/cyverse/irods-mcp-server/cmd/flag"
 	"github.com/cyverse/irods-mcp-server/common"
 	irods "github.com/cyverse/irods-mcp-server/irods"
 	"github.com/mark3labs/mcp-go/server"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"golang.org/x/xerrors"
 
 	daemonizer "github.com/cyverse/go-daemonizer"
 )
@@ -53,7 +53,7 @@ func processCommand(command *cobra.Command, args []string) error {
 		// run as a daemon
 		d, err := daemonizer.NewDaemonizer()
 		if err != nil {
-			return xerrors.Errorf("failed to create daemonizer: %w", err)
+			return errors.Wrapf(err, "failed to create daemonizer")
 		}
 
 		if !d.IsDaemon() {
@@ -69,7 +69,7 @@ func processCommand(command *cobra.Command, args []string) error {
 			// pass the echo server config to the daemon process
 			err = d.Daemonize(params, option)
 			if err != nil {
-				return xerrors.Errorf("failed to daemonize the process: %w", err)
+				return errors.Wrapf(err, "failed to daemonize the process")
 			}
 
 			// exit the parent process
@@ -102,7 +102,7 @@ func startHTTPServer(svr *server.MCPServer, serviceUrl string, oauth2 *common.OA
 
 	u, err := url.Parse(serviceUrl)
 	if err != nil {
-		return xerrors.Errorf("failed to parse service URL: %w", err)
+		return errors.Wrapf(err, "failed to parse service URL %q", serviceUrl)
 	}
 
 	logger.Infof("address: %s", u.String())
@@ -164,7 +164,7 @@ func startHTTPServer(svr *server.MCPServer, serviceUrl string, oauth2 *common.OA
 		if err == http.ErrServerClosed {
 			logger.Info("HTTP server closed")
 		} else {
-			return xerrors.Errorf("failed to start HTTP server: %w", err)
+			return errors.Wrapf(err, "failed to start HTTP server %q", serviceUrl)
 		}
 	}
 
@@ -184,7 +184,7 @@ func startSTDIOServer(svr *server.MCPServer) error {
 	// Start the stdio server
 	if err := server.ServeStdio(svr, server.WithStdioContextFunc(common.AuthForStdio)); err != nil {
 		if !strings.Contains(err.Error(), "context canceled") {
-			return xerrors.Errorf("failed to start STDIO server: %w", err)
+			return errors.Wrapf(err, "failed to start STDIO server")
 		}
 	}
 
@@ -226,7 +226,7 @@ func run(config *common.Config) error {
 
 	err := config.Validate()
 	if err != nil {
-		return xerrors.Errorf("invalid configuration: %w", err)
+		return errors.Wrapf(err, "invalid configuration")
 	}
 
 	// Initialize the MCP server
@@ -240,25 +240,25 @@ func run(config *common.Config) error {
 	// Initialize the iRODS service
 	_, err = irods.NewIRODSMCPServer(svr, config)
 	if err != nil {
-		return xerrors.Errorf("failed to initialize irods service: %w", err)
+		return errors.Wrapf(err, "failed to initialize irods service")
 	}
 	var oauth2 *common.OAuth2
 	if config.IsOAuth2Enabled() {
 		oauth2, err = common.NewOAuth2(config.GetPublicServiceURL()+"/mcp", config.OIDCDiscoveryURL, config.OAuth2ClientID, config.OAuth2ClientSecret)
 		if err != nil {
-			return xerrors.Errorf("failed to initialize OAuth2: %w", err)
+			return errors.Wrapf(err, "failed to initialize OAuth2")
 		}
 	}
 
 	if config.Remote {
 		err = startHTTPServer(svr, config.GetServiceURL(), oauth2)
 		if err != nil {
-			return xerrors.Errorf("Failed to start HTTP server: %w", err)
+			return errors.Wrapf(err, "failed to start HTTP server %q", config.GetServiceURL())
 		}
 	} else {
 		err = startSTDIOServer(svr)
 		if err != nil {
-			return xerrors.Errorf("Failed to start STDIO server: %w", err)
+			return errors.Wrapf(err, "failed to start STDIO server")
 		}
 	}
 

@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/cockroachdb/errors"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/xerrors"
 )
 
 // custom context key for storing the auth token
@@ -149,7 +149,7 @@ func AuthForTest() context.Context {
 func GetAuthValue(ctx context.Context) (AuthValue, error) {
 	authVal, ok := ctx.Value(AuthKey{}).(AuthValue)
 	if !ok {
-		return AuthValue{}, xerrors.Errorf("failed to get auth value from context")
+		return AuthValue{}, errors.Errorf("failed to get auth value from context")
 	}
 	return authVal, nil
 }

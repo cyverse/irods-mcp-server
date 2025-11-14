@@ -9,13 +9,13 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/cockroachdb/errors"
 	irodsclient_fs "github.com/cyverse/go-irodsclient/fs"
 	"github.com/cyverse/irods-mcp-server/common"
 	irods_common "github.com/cyverse/irods-mcp-server/irods/common"
 	"github.com/cyverse/irods-mcp-server/irods/model"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"golang.org/x/xerrors"
 )
 
 const (
@@ -88,44 +88,44 @@ func (r *Filesystem) Handler(ctx context.Context, request mcp.ReadResourceReques
 
 	parsedURL, err := url.Parse(uri)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to parse URI %q: %w", uri, err)
+		return nil, errors.Wrapf(err, "failed to parse URI %q", uri)
 	}
 
 	// Check if the URI is valid
 	if strings.ToLower(parsedURL.Scheme) != r.GetScheme() {
-		return nil, xerrors.Errorf("unsupported URI scheme %q", parsedURL.Scheme)
+		return nil, errors.Errorf("unsupported URI scheme %q", parsedURL.Scheme)
 	}
 
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to get auth value: %w", err)
+		return nil, errors.Wrapf(err, "failed to get auth value")
 	}
 
 	// make a irods filesystem client
 	fs, err := r.mcpServer.GetIRODSFSClientFromAuthValue(&authValue)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to create a irods fs client: %w", err)
+		return nil, errors.Wrapf(err, "failed to create a irods fs client")
 	}
 
 	irodsPath := irods_common.MakeIRODSPath(r.config, fs.GetAccount(), parsedURL.Path)
 
 	// check permission
 	if !irods_common.IsAccessAllowed(irodsPath, r.GetAccessiblePaths(&authValue)) {
-		return nil, xerrors.Errorf("request is not permitted for path %q", irodsPath)
+		return nil, errors.Errorf("request is not permitted for path %q", irodsPath)
 	}
 
 	// Get file info
 	sourceEntry, err := fs.Stat(irodsPath)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to get file info for %q", irodsPath)
 	}
 
 	if sourceEntry.IsDir() {
 		// If it's a directory, list its contents
 		listOutput, err := r.listCollection(fs, sourceEntry)
 		if err != nil {
-			return nil, xerrors.Errorf("failed to list directory (collection) %q: %w", irodsPath, err)
+			return nil, errors.Wrapf(err, "failed to list directory (collection) %q", irodsPath)
 		}
 
 		return []mcp.ResourceContents{
@@ -153,7 +153,7 @@ func (r *Filesystem) Handler(ctx context.Context, request mcp.ReadResourceReques
 	// read the file content
 	content, err := r.readDataObject(fs, irodsPath, irods_common.MaxInlineSize)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to read file (data-object) %q: %w", irodsPath, err)
+		return nil, errors.Wrapf(err, "failed to read file (data-object) %q", irodsPath)
 	}
 
 	mimeType := irods_common.DetectMimeType(irodsPath, content)
@@ -194,7 +194,7 @@ func (r *Filesystem) listCollection(fs *irodsclient_fs.FileSystem, sourceEntry *
 
 	dirEntries, err := fs.List(sourceEntry.Path)
 	if err != nil {
-		return "", xerrors.Errorf("failed to list directory (collection) %q: %w", sourceEntry.Path, err)
+		return "", errors.Wrapf(err, "failed to list directory (collection) %q", sourceEntry.Path)
 	}
 
 	for _, dirEntry := range dirEntries {
@@ -216,7 +216,7 @@ func (r *Filesystem) listCollection(fs *irodsclient_fs.FileSystem, sourceEntry *
 
 	jsonBytes, err := json.Marshal(listDirectoryOutput)
 	if err != nil {
-		return "", xerrors.Errorf("failed to marshal JSON: %w", err)
+		return "", errors.Wrapf(err, "failed to marshal JSON")
 	}
 
 	return string(jsonBytes), nil
@@ -225,7 +225,7 @@ func (r *Filesystem) listCollection(fs *irodsclient_fs.FileSystem, sourceEntry *
 func (r *Filesystem) readDataObject(fs *irodsclient_fs.FileSystem, sourcePath string, maxReadLen int64) ([]byte, error) {
 	handle, err := fs.OpenFile(sourcePath, "", "r")
 	if err != nil {
-		return nil, xerrors.Errorf("failed to open file %q: %w", sourcePath, err)
+		return nil, errors.Wrapf(err, "failed to open file %q", sourcePath)
 	}
 	defer handle.Close()
 
@@ -238,7 +238,7 @@ func (r *Filesystem) readDataObject(fs *irodsclient_fs.FileSystem, sourcePath st
 			return buffer[:n], nil
 		}
 
-		return nil, xerrors.Errorf("failed to read file %q: %w", sourcePath, err)
+		return nil, errors.Wrapf(err, "failed to read file %q", sourcePath)
 	}
 
 	return buffer[:n], nil

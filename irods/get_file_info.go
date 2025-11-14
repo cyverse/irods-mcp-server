@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/cockroachdb/errors"
 	irodsclient_fs "github.com/cyverse/go-irodsclient/fs"
 	irodsclient_types "github.com/cyverse/go-irodsclient/irods/types"
 	"github.com/cyverse/irods-mcp-server/common"
@@ -11,7 +12,6 @@ import (
 	"github.com/cyverse/irods-mcp-server/irods/model"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"golang.org/x/xerrors"
 )
 
 const (
@@ -88,39 +88,39 @@ func (t *GetFileInfo) Handler(ctx context.Context, request mcp.CallToolRequest) 
 
 	inputPath, ok := arguments["path"].(string)
 	if !ok {
-		return nil, xerrors.Errorf("failed to get path from arguments")
+		return nil, errors.Errorf("failed to get path from arguments")
 	}
 
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to get auth value: %w", err)
+		return nil, errors.Wrapf(err, "failed to get auth value")
 	}
 
 	// make a irods filesystem client
 	fs, err := t.mcpServer.GetIRODSFSClientFromAuthValue(&authValue)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to create a irods fs client: %w", err)
+		return nil, errors.Wrapf(err, "failed to create a irods fs client")
 	}
 
 	irodsPath := irods_common.MakeIRODSPath(t.config, fs.GetAccount(), inputPath)
 
 	// check permission
 	if !irods_common.IsAccessAllowed(irodsPath, t.GetAccessiblePaths(&authValue)) {
-		outputErr := xerrors.Errorf("%q request is not permitted for path %q", t.GetName(), irodsPath)
+		outputErr := errors.Errorf("%q request is not permitted for path %q", t.GetName(), irodsPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 
 	// Get file info
 	sourceEntry, err := fs.Stat(irodsPath)
 	if err != nil {
-		outputErr := xerrors.Errorf("failed to stat file or directory info for %q: %w", irodsPath, err)
+		outputErr := errors.Wrapf(err, "failed to stat file or directory info for %q", irodsPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 
 	content, err := t.getFileInfo(fs, sourceEntry)
 	if err != nil {
-		outputErr := xerrors.Errorf("failed to get file (data-object) info for %q: %w", irodsPath, err)
+		outputErr := errors.Wrapf(err, "failed to get file (data-object) info for %q", irodsPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 
@@ -130,20 +130,20 @@ func (t *GetFileInfo) Handler(ctx context.Context, request mcp.CallToolRequest) 
 func (t *GetFileInfo) getFileInfo(fs *irodsclient_fs.FileSystem, sourceEntry *irodsclient_fs.Entry) (string, error) {
 	accesses, err := fs.ListACLs(sourceEntry.Path)
 	if err != nil {
-		return "", xerrors.Errorf("failed to list ACLs for %q: %w", sourceEntry.Path, err)
+		return "", errors.Wrapf(err, "failed to list ACLs for %q", sourceEntry.Path)
 	}
 
 	var accessInherit *irodsclient_types.IRODSAccessInheritance
 	if sourceEntry.IsDir() {
 		accessInherit, err = fs.GetDirACLInheritance(sourceEntry.Path)
 		if err != nil {
-			return "", xerrors.Errorf("failed to get access inheritance info for %q: %w", sourceEntry.Path, err)
+			return "", errors.Wrapf(err, "failed to get access inheritance info for %q", sourceEntry.Path)
 		}
 	}
 
 	metadatas, err := fs.ListMetadata(sourceEntry.Path)
 	if err != nil {
-		return "", xerrors.Errorf("failed to list metadata for %q: %w", sourceEntry.Path, err)
+		return "", errors.Wrapf(err, "failed to list metadata for %q", sourceEntry.Path)
 	}
 
 	filteredMetadatas := []*irodsclient_types.IRODSMeta{}
@@ -158,7 +158,7 @@ func (t *GetFileInfo) getFileInfo(fs *irodsclient_fs.FileSystem, sourceEntry *ir
 		// read the file content
 		content, err := irods_common.ReadDataObject(fs, sourceEntry.Path, irods_common.MIME_TYPE_READ_SIZE)
 		if err != nil {
-			return "", xerrors.Errorf("failed to read file (data-object) %q: %w", sourceEntry.Path, err)
+			return "", errors.Wrapf(err, "failed to read file (data-object) %q", sourceEntry.Path)
 		}
 
 		mimeType = irods_common.DetectMimeType(sourceEntry.Path, content)
@@ -176,7 +176,7 @@ func (t *GetFileInfo) getFileInfo(fs *irodsclient_fs.FileSystem, sourceEntry *ir
 
 	jsonBytes, err := json.Marshal(getFileInfoOutput)
 	if err != nil {
-		return "", xerrors.Errorf("failed to marshal JSON: %w", err)
+		return "", errors.Wrapf(err, "failed to marshal JSON")
 	}
 
 	return string(jsonBytes), nil
