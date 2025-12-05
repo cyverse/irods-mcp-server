@@ -134,8 +134,14 @@ func startHTTPServer(svr *server.MCPServer, serviceUrl string, oauth2 *common.OA
 
 	if oauth2 != nil {
 		mux.HandleFunc(streamableHttpEndpoint, oauth2.RequireOAuth(streamableHttpServer))
+
+		// OAuth2
 		mux.HandleFunc(strings.TrimRight(u.Path, "/")+"/.well-known/oauth-protected-resource", oauth2.HandleResourceMetadataURI)
 		mux.HandleFunc(strings.TrimRight(u.Path, "/")+"/.well-known/oauth-protected-resource/mcp", oauth2.HandleResourceMetadataURI)
+		mux.HandleFunc(strings.TrimRight(u.Path, "/")+"/.well-known/oauth-authorization-server", oauth2.HandleAuthServerMetadataURI)
+		mux.HandleFunc(strings.TrimRight(u.Path, "/")+"/.well-known/oauth-authorization-server/mcp", oauth2.HandleAuthServerMetadataURI)
+		mux.HandleFunc(strings.TrimRight(u.Path, "/")+"/.well-known/openid-configuration", oauth2.HandleOIDCDiscoveryURI)
+		mux.HandleFunc(strings.TrimRight(u.Path, "/")+"/.well-known/openid-configuration/mcp", oauth2.HandleOIDCDiscoveryURI)
 	} else {
 		mux.Handle(streamableHttpEndpoint, streamableHttpServer)
 	}

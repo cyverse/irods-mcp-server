@@ -2,13 +2,14 @@ package common
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"path"
 	"strings"
+
+	"github.com/cockroachdb/errors"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -217,19 +218,19 @@ func (o *OAuth2) oauthIntrospectToken(inspectEndpoint string, oauthClientID, oau
 	if !ok {
 		msg := "the token introspection response did not contain the active flag"
 		log.Error(msg)
-		return false, errors.New(msg)
+		return false, errors.Errorf(msg)
 	}
 	switch isActive := active.(type) {
 	case bool:
 		if !isActive {
 			msg := "invalid or expired access token"
 			log.WithField("claims", claims).Error(msg)
-			return false, errors.New(msg)
+			return false, errors.Errorf(msg)
 		}
 	default:
 		msg := "invalid value for active flag"
 		log.WithField("claims", claims).Error(msg)
-		return false, errors.New(msg)
+		return false, errors.Errorf(msg)
 	}
 	log.WithFields(log.Fields{
 		"token":  accessToken,
@@ -251,8 +252,48 @@ type ResourceMetadata struct {
 	ResourceTOSURI         []string `json:"resource_tos_uri,omitempty"`
 }
 
-// HandleResourceMetadataURI returns the Protected Resource Metadata as defined in https://datatracker.ietf.org/doc/html/rfc9728
+type AuthorizationMetadata struct {
+	Issuer                                     string   `json:"issuer"`
+	AuthorizationEndpoint                      string   `json:"authorization_endpoint"`
+	TokenEndpoint                              string   `json:"token_endpoint"`
+	JwksURI                                    string   `json:"jwks_uri,omitempty"`
+	GrantTypesSupported                        []string `json:"grant_types_supported"`
+	ResponseTypesSupported                     []string `json:"response_types_supported"`
+	ResponseModesSupported                     []string `json:"response_modes_supported"`
+	RegistrationEndpoint                       string   `json:"registration_endpoint"`
+	TokenEndpointAuthMethodsSupported          []string `json:"token_endpoint_auth_methods_supported"`
+	TokenEndpointAuthSigningAlgValuesSupported []string `json:"token_endpoint_auth_signing_alg_values_supported"`
+	ScopesSupported                            []string `json:"scopes_supported"`
+	RequestParameterSupported                  bool     `json:"request_parameter_supported"`
+	RequestURIParameterSupported               bool     `json:"request_uri_parameter_supported"`
+	CodeChallengeMethodsSupported              []string `json:"code_challenge_methods_supported"`
+	TLSClientCertificateBoundAccessTokens      bool     `json:"tls_client_certificate_bound_access_tokens"`
+	IntrospectionEndpoint                      string   `json:"introspection_endpoint"`
+	TokenIntrospectionEndpoint                 string   `json:"token_introspection_endpoint"`
+	RevocationEndpoint                         string   `json:"revocation_endpoint,omitempty"`
+}
+
+func (o *OAuth2) setResponseHeader(w http.ResponseWriter) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "*")
+}
+
+// for /.well-known/oauth-protected-resource
+// and /.well-known/oauth-protected-resource/mcp
 func (o *OAuth2) HandleResourceMetadataURI(w http.ResponseWriter, r *http.Request) {
+	o.setResponseHeader(w)
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	var metadata = ResourceMetadata{
 		ResourceName: "CyVerse Data Store MCP server",
 		Resource:     o.McpURL,
@@ -261,6 +302,9 @@ func (o *OAuth2) HandleResourceMetadataURI(w http.ResponseWriter, r *http.Reques
 		},
 		ScopesSupported: []string{
 			"openid",
+			"mcp:api",
+			"mcp:read",
+			"mcp:write",
 		},
 		BearerMethodsSupported: []string{
 			"header",
@@ -271,6 +315,95 @@ func (o *OAuth2) HandleResourceMetadataURI(w http.ResponseWriter, r *http.Reques
 	err := json.NewEncoder(w).Encode(metadata)
 	if err != nil {
 		log.Error(err.Error())
+	}
+}
+
+// for /.well-known/oauth-authorization-server
+// and /.well-known/oauth-authorization-server/mcp
+func (o *OAuth2) HandleAuthServerMetadataURI(w http.ResponseWriter, r *http.Request) {
+	o.setResponseHeader(w)
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse the OIDC Discovery URL to construct the OAuth2 authorization server metadata URL
+	discoveryURL, err := url.Parse(o.OIDCDiscoveryURL)
+	if err != nil {
+		http.Error(w, "Invalid OIDC discovery URL", http.StatusInternalServerError)
+		return
+	}
+
+	// OAuth2 authorization server metadata is typically at /.well-known/oauth-authorization-server
+	authServerURL := *discoveryURL
+	authServerURL.Path = "/.well-known/oauth-authorization-server"
+
+	// Connect to the authorization server metadata endpoint and proxy the response
+	resp, err := http.Get(authServerURL.String())
+	if err != nil {
+		http.Error(w, "Failed to get authorization server metadata", http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		http.Error(w, "Failed to read authorization server metadata", http.StatusInternalServerError)
+		return
+	}
+
+	authMetadata := AuthorizationMetadata{}
+	err = json.Unmarshal(bodyBytes, &authMetadata)
+	if err != nil {
+		http.Error(w, "Failed to parse authorization server metadata", http.StatusInternalServerError)
+		return
+	}
+
+	// Write the response back to the client
+	jsonBytes, err := json.Marshal(authMetadata)
+	if err != nil {
+		http.Error(w, "Failed to marshal authorization server metadata", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(resp.StatusCode)
+	w.Write(jsonBytes)
+}
+
+// for /.well-known/openid-configuration
+// and /.well-known/openid-configuration/mcp
+func (o *OAuth2) HandleOIDCDiscoveryURI(w http.ResponseWriter, r *http.Request) {
+	o.setResponseHeader(w)
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Connect to the authorization server metadata endpoint and proxy the response
+	resp, err := http.Get(o.OIDCDiscoveryURL)
+	if err != nil {
+		http.Error(w, "Failed to get authorization server metadata", http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	_, err = io.Copy(w, resp.Body)
+	if err != nil {
+		http.Error(w, "Failed to read authorization server metadata", http.StatusInternalServerError)
+		return
 	}
 }
 
