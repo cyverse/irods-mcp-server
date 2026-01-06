@@ -160,7 +160,7 @@ func (t *DirectoryTree) listCollectionRecursively(fs *irodsclient_fs.FileSystem,
 	listDirectoryOutput := model.ListDirectoryOutput{
 		Directory:            sourceEntry,
 		DirectoryResourceURI: irods_common.MakeResourceURI(sourceEntry.Path),
-		DirectoryWebDAVURI:   irods_common.MakeWebdavURL(t.config, sourceEntry.Path),
+		DirectoryWebDAVURI:   irods_common.MakeWebdavURL(t.config, sourceEntry.Path, fs.GetAccount()),
 		DirectoryEntries:     outputEntries,
 	}
 
@@ -192,7 +192,7 @@ func (t *DirectoryTree) listCollectionRecursivelyInternal(fs *irodsclient_fs.Fil
 		entryStruct := model.EntryWithAccess{
 			Entry:            dirEntry,
 			ResourceURI:      irods_common.MakeResourceURI(dirEntry.Path),
-			WebDAVURI:        irods_common.MakeWebdavURL(t.config, dirEntry.Path),
+			WebDAVURI:        irods_common.MakeWebdavURL(t.config, dirEntry.Path, fs.GetAccount()),
 			DirectoryEntries: subEntries,
 		}
 

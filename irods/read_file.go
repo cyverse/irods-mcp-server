@@ -34,7 +34,7 @@ func (t *ReadFile) GetName() string {
 }
 
 func (t *ReadFile) GetDescription() string {
-	return `Read the complete content of a file (data-object) with the specified path.
+	return `Read the partial content of a file (data-object) with the specified path and offset.
 	The specified path must be an iRODS path.
 	If the file is too large to be displayed inline, use the WebDAV URI to access it.`
 }
@@ -46,7 +46,12 @@ func (t *ReadFile) GetTool() mcp.Tool {
 		mcp.WithString(
 			"path",
 			mcp.Required(),
-			mcp.Description("The path to the directory (collection) to list"),
+			mcp.Description("The path to the file (data-object) to read"),
+		),
+		mcp.WithNumber(
+			"offset",
+			mcp.DefaultNumber(float64(0)),
+			mcp.Description("The offset to start reading the file from. Default is 0."),
 		),
 		mcp.WithNumber(
 			"length",
@@ -89,6 +94,12 @@ func (t *ReadFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*m
 		return nil, errors.Errorf("failed to get path from arguments")
 	}
 
+	inputOffsetFloat, ok := arguments["offset"].(float64)
+	if !ok {
+		// default value
+		inputOffsetFloat = float64(0)
+	}
+
 	inputLengthFloat, ok := arguments["length"].(float64)
 	if !ok {
 		// default value
@@ -129,7 +140,14 @@ func (t *ReadFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*m
 		return irods_common.OutputMCPError(outputErr)
 	}
 
-	content, err := t.readFile(fs, entry, int64(inputLength))
+	inputOffset := int64(inputOffsetFloat)
+	if inputOffset < 0 {
+		inputOffset = 0
+	} else if inputOffset >= entry.Size {
+		inputOffset = entry.Size
+	}
+
+	content, err := t.readFile(fs, entry, int64(inputOffset), int64(inputLength))
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to read file (data-object) for %q", irodsPath)
 		return irods_common.OutputMCPError(outputErr)
@@ -140,9 +158,9 @@ func (t *ReadFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*m
 	}, nil
 }
 
-func (t *ReadFile) readFile(fs *irodsclient_fs.FileSystem, sourceEntry *irodsclient_fs.Entry, readLength int64) ([]mcp.Content, error) {
+func (t *ReadFile) readFile(fs *irodsclient_fs.FileSystem, sourceEntry *irodsclient_fs.Entry, offset int64, readLength int64) ([]mcp.Content, error) {
 	resourceURI := irods_common.MakeResourceURI(sourceEntry.Path)
-	webdavURI := irods_common.MakeWebdavURL(t.config, sourceEntry.Path)
+	webdavURI := irods_common.MakeWebdavURL(t.config, sourceEntry.Path, fs.GetAccount())
 
 	if sourceEntry.IsDir() {
 		// For directories, return a resource reference instead
@@ -163,12 +181,12 @@ func (t *ReadFile) readFile(fs *irodsclient_fs.FileSystem, sourceEntry *irodscli
 	}
 
 	// read the file content
-	content, err := irods_common.ReadDataObject(fs, sourceEntry.Path, readLength)
+	content, err := irods_common.ReadDataObject(fs, sourceEntry.Path, offset, readLength)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read file (data-object) %q", sourceEntry.Path)
 	}
 
-	mimeType := irods_common.DetectMimeType(sourceEntry.Path, content)
+	mimeType := irods_common.DetectMimeTypeWithContent(sourceEntry.Path, offset, content)
 	if irods_common.IsTextFile(mimeType) {
 		// text file
 		return []mcp.Content{

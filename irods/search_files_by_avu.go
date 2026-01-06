@@ -69,6 +69,7 @@ func (t *SearchFilesByAVU) GetAccessiblePaths(authValue *common.AuthValue) []str
 	sharedPath := irods_common.GetSharedPath(t.config, account)
 
 	paths := []string{
+		sharedPath,
 		sharedPath + "/*",
 	}
 
@@ -132,7 +133,7 @@ func (t *SearchFilesByAVU) search(fs *irodsclient_fs.FileSystem, accessiblePaths
 			entryStruct := model.EntryWithAccess{
 				Entry:       entry,
 				ResourceURI: irods_common.MakeResourceURI(entry.Path),
-				WebDAVURI:   irods_common.MakeWebdavURL(t.config, entry.Path),
+				WebDAVURI:   irods_common.MakeWebdavURL(t.config, entry.Path, fs.GetAccount()),
 			}
 
 			outputEntries = append(outputEntries, entryStruct)

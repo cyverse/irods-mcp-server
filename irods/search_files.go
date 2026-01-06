@@ -143,7 +143,7 @@ func (t *SearchFiles) search(fs *irodsclient_fs.FileSystem, searchPath string) (
 		entryStruct := model.EntryWithAccess{
 			Entry:       dirEntry,
 			ResourceURI: irods_common.MakeResourceURI(dirEntry.Path),
-			WebDAVURI:   irods_common.MakeWebdavURL(t.config, dirEntry.Path),
+			WebDAVURI:   irods_common.MakeWebdavURL(t.config, dirEntry.Path, fs.GetAccount()),
 		}
 
 		outputEntries = append(outputEntries, entryStruct)
@@ -153,7 +153,7 @@ func (t *SearchFiles) search(fs *irodsclient_fs.FileSystem, searchPath string) (
 		entryStruct := model.EntryWithAccess{
 			Entry:       fileEntry,
 			ResourceURI: irods_common.MakeResourceURI(fileEntry.Path),
-			WebDAVURI:   irods_common.MakeWebdavURL(t.config, fileEntry.Path),
+			WebDAVURI:   irods_common.MakeWebdavURL(t.config, fileEntry.Path, fs.GetAccount()),
 		}
 
 		outputEntries = append(outputEntries, entryStruct)

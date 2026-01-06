@@ -145,7 +145,7 @@ func (t *ListDirectory) listCollection(fs *irodsclient_fs.FileSystem, sourceEntr
 		entryStruct := model.EntryWithAccess{
 			Entry:       dirEntry,
 			ResourceURI: irods_common.MakeResourceURI(dirEntry.Path),
-			WebDAVURI:   irods_common.MakeWebdavURL(t.config, dirEntry.Path),
+			WebDAVURI:   irods_common.MakeWebdavURL(t.config, dirEntry.Path, fs.GetAccount()),
 		}
 
 		outputEntries = append(outputEntries, entryStruct)
@@ -154,7 +154,7 @@ func (t *ListDirectory) listCollection(fs *irodsclient_fs.FileSystem, sourceEntr
 	listDirectoryOutput := model.ListDirectoryOutput{
 		Directory:            sourceEntry,
 		DirectoryResourceURI: irods_common.MakeResourceURI(sourceEntry.Path),
-		DirectoryWebDAVURI:   irods_common.MakeWebdavURL(t.config, sourceEntry.Path),
+		DirectoryWebDAVURI:   irods_common.MakeWebdavURL(t.config, sourceEntry.Path, fs.GetAccount()),
 		DirectoryEntries:     outputEntries,
 	}
 

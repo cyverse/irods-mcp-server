@@ -19,22 +19,22 @@ const (
 )
 
 type GetFileInfo struct {
-	mcpServer             *IRODSMCPServer
-	config                *common.Config
-	systemMetadataNameMap map[string]string
+	mcpServer          *IRODSMCPServer
+	config             *common.Config
+	systemAttributeMap map[string]string
 }
 
 func NewGetFileInfo(svr *IRODSMCPServer) ToolAPI {
-	systemMetadataNames := irods_common.GetSystemMetadataNames()
-	systemMetadataNameMap := map[string]string{}
-	for _, systemMetadataName := range systemMetadataNames {
-		systemMetadataNameMap[systemMetadataName] = systemMetadataName
+	systemAttributes := irods_common.GetSystemAttributes()
+	systemAttributeMap := map[string]string{}
+	for _, systemAttribute := range systemAttributes {
+		systemAttributeMap[systemAttribute] = systemAttribute
 	}
 
 	return &GetFileInfo{
-		mcpServer:             svr,
-		config:                svr.GetConfig(),
-		systemMetadataNameMap: systemMetadataNameMap,
+		mcpServer:          svr,
+		config:             svr.GetConfig(),
+		systemAttributeMap: systemAttributeMap,
 	}
 }
 
@@ -141,37 +141,37 @@ func (t *GetFileInfo) getFileInfo(fs *irodsclient_fs.FileSystem, sourceEntry *ir
 		}
 	}
 
-	metadatas, err := fs.ListMetadata(sourceEntry.Path)
+	avus, err := fs.ListMetadata(sourceEntry.Path)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to list metadata for %q", sourceEntry.Path)
 	}
 
-	filteredMetadatas := []*irodsclient_types.IRODSMeta{}
-	for _, metadata := range metadatas {
-		if t.shouldHideMetadata(fs, metadata.Name) {
-			filteredMetadatas = append(filteredMetadatas, metadata)
+	filteredAVUs := []*irodsclient_types.IRODSMeta{}
+	for _, avu := range avus {
+		if t.shouldHideMetadata(fs, avu.Name) {
+			filteredAVUs = append(filteredAVUs, avu)
 		}
 	}
 
 	mimeType := "Directory"
 	if !sourceEntry.IsDir() {
 		// read the file content
-		content, err := irods_common.ReadDataObject(fs, sourceEntry.Path, irods_common.MIME_TYPE_READ_SIZE)
+		content, err := irods_common.ReadDataObject(fs, sourceEntry.Path, 0, irods_common.MIME_TYPE_READ_SIZE)
 		if err != nil {
 			return "", errors.Wrapf(err, "failed to read file (data-object) %q", sourceEntry.Path)
 		}
 
-		mimeType = irods_common.DetectMimeType(sourceEntry.Path, content)
+		mimeType = irods_common.DetectMimeTypeWithContent(sourceEntry.Path, 0, content)
 	}
 
 	getFileInfoOutput := model.GetFileInfoOutput{
 		MIMEType:          mimeType,
 		EntryInfo:         sourceEntry,
 		ResourceURI:       irods_common.MakeResourceURI(sourceEntry.Path),
-		WebDAVURI:         irods_common.MakeWebdavURL(t.config, sourceEntry.Path),
+		WebDAVURI:         irods_common.MakeWebdavURLWithAccesses(t.config, sourceEntry.Path, fs.GetAccount(), accesses),
 		Accesses:          accesses,
 		AccessInheritance: accessInherit,
-		Metadata:          filteredMetadatas,
+		AVUs:              filteredAVUs,
 	}
 
 	jsonBytes, err := json.Marshal(getFileInfoOutput)
@@ -188,10 +188,5 @@ func (t *GetFileInfo) shouldHideMetadata(fs *irodsclient_fs.FileSystem, attr str
 		return false
 	}
 
-	if _, ok := t.systemMetadataNameMap[attr]; ok {
-		// has it
-		return true
-	}
-
-	return false
+	return irods_common.IsSystemAttribute(attr)
 }

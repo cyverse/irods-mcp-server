@@ -264,7 +264,7 @@ func (config *Config) makeDir(path string) error {
 func (config *Config) Validate() error {
 	if config.Remote {
 		if !strings.HasPrefix(config.ServiceURL, "http://") && !strings.HasPrefix(config.ServiceURL, "https://") {
-			return errors.Errorf("service URL must start with http:// or https://")
+			return errors.Errorf("service URL %q must start with http:// or https://", config.ServiceURL)
 		}
 	}
 

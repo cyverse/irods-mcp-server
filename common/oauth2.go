@@ -302,9 +302,9 @@ func (o *OAuth2) HandleResourceMetadataURI(w http.ResponseWriter, r *http.Reques
 		},
 		ScopesSupported: []string{
 			"openid",
-			"mcp:api",
-			"mcp:read",
-			"mcp:write",
+			//"mcp:api",
+			//"mcp:read",
+			//"mcp:write",
 		},
 		BearerMethodsSupported: []string{
 			"header",

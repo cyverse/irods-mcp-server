@@ -138,7 +138,7 @@ func (r *Filesystem) Handler(ctx context.Context, request mcp.ReadResourceReques
 	}
 
 	// file
-	webdavURL := irods_common.MakeWebdavURL(r.config, sourceEntry.Path)
+	webdavURL := irods_common.MakeWebdavURL(r.config, sourceEntry.Path, fs.GetAccount())
 	if sourceEntry.Size > irods_common.MaxInlineSize {
 		// file is too large to inline, return a reference to WebDAV URL
 		return []mcp.ResourceContents{
@@ -156,7 +156,7 @@ func (r *Filesystem) Handler(ctx context.Context, request mcp.ReadResourceReques
 		return nil, errors.Wrapf(err, "failed to read file (data-object) %q", irodsPath)
 	}
 
-	mimeType := irods_common.DetectMimeType(irodsPath, content)
+	mimeType := irods_common.DetectMimeTypeWithContent(irodsPath, 0, content)
 	if irods_common.IsTextFile(mimeType) {
 		// text file
 		return []mcp.ResourceContents{
@@ -201,7 +201,7 @@ func (r *Filesystem) listCollection(fs *irodsclient_fs.FileSystem, sourceEntry *
 		objStruct := model.EntryWithAccess{
 			Entry:       dirEntry,
 			ResourceURI: irods_common.MakeResourceURI(dirEntry.Path),
-			WebDAVURI:   irods_common.MakeWebdavURL(r.config, dirEntry.Path),
+			WebDAVURI:   irods_common.MakeWebdavURL(r.config, dirEntry.Path, fs.GetAccount()),
 		}
 
 		outputEntries = append(outputEntries, objStruct)
@@ -210,7 +210,7 @@ func (r *Filesystem) listCollection(fs *irodsclient_fs.FileSystem, sourceEntry *
 	listDirectoryOutput := model.ListDirectoryOutput{
 		Directory:            sourceEntry,
 		DirectoryResourceURI: irods_common.MakeResourceURI(sourceEntry.Path),
-		DirectoryWebDAVURI:   irods_common.MakeWebdavURL(r.config, sourceEntry.Path),
+		DirectoryWebDAVURI:   irods_common.MakeWebdavURL(r.config, sourceEntry.Path, fs.GetAccount()),
 		DirectoryEntries:     outputEntries,
 	}
 

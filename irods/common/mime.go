@@ -11,8 +11,8 @@ const (
 	MIME_TYPE_READ_SIZE int64 = 512 // 512 bytes
 )
 
-// DetectMimeType detects the mime type of a file based on its extension and content
-func DetectMimeType(sourcePath string, content []byte) string {
+// DetectMimeTypeWithExtension detects the mime type of a file based on its extension
+func DetectMimeTypeWithExtension(sourcePath string) string {
 	ext := path.Ext(sourcePath)
 	if len(ext) > 0 {
 		mimeType := mime.TypeByExtension(ext)
@@ -21,7 +21,24 @@ func DetectMimeType(sourcePath string, content []byte) string {
 		}
 	}
 
-	return http.DetectContentType(content)
+	return "application/octet-stream"
+}
+
+// DetectMimeTypeWithContent detects the mime type of a file based on its extension and content
+func DetectMimeTypeWithContent(sourcePath string, offset int64, content []byte) string {
+	ext := path.Ext(sourcePath)
+	if len(ext) > 0 {
+		mimeType := mime.TypeByExtension(ext)
+		if len(mimeType) > 0 {
+			return mimeType
+		}
+	}
+
+	if offset == 0 {
+		return http.DetectContentType(content)
+	}
+
+	return "application/octet-stream"
 }
 
 // IsTextFile checks if the mimetype is for test files
