@@ -83,7 +83,7 @@ func (t *ListDirectoryDetails) Handler(ctx context.Context, request mcp.CallTool
 
 	inputPath, ok := arguments["path"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get path from arguments")
+		return nil, errors.Newf("failed to get path from arguments")
 	}
 
 	// auth
@@ -121,7 +121,7 @@ func (t *ListDirectoryDetails) Handler(ctx context.Context, request mcp.CallTool
 	}
 
 	if !sourceEntry.IsDir() {
-		outputErr := errors.Errorf("path %q is not a directory (collection)", irodsPath)
+		outputErr := errors.Newf("path %q is not a directory (collection)", irodsPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 

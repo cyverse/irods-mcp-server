@@ -63,7 +63,7 @@ func (t *GetTicketInfo) Handler(ctx context.Context, request mcp.CallToolRequest
 
 	inputName, ok := arguments["name"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get name from arguments")
+		return nil, errors.New("failed to get name from arguments")
 	}
 
 	// auth
@@ -73,7 +73,7 @@ func (t *GetTicketInfo) Handler(ctx context.Context, request mcp.CallToolRequest
 	}
 
 	if authValue.IsAnonymous() {
-		outputErr := errors.Errorf("anonymous user is not allowed to list tickets")
+		outputErr := errors.New("anonymous user is not allowed to list tickets")
 		return irods_common.OutputMCPError(outputErr)
 	}
 

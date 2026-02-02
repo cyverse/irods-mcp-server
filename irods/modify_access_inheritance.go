@@ -89,7 +89,7 @@ func (t *ModifyAccessInheritance) Handler(ctx context.Context, request mcp.CallT
 
 	path, ok := arguments["path"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get path from arguments")
+		return nil, errors.New("failed to get path from arguments")
 	}
 
 	inherit, ok := arguments["inherit"].(bool)
@@ -118,12 +118,12 @@ func (t *ModifyAccessInheritance) Handler(ctx context.Context, request mcp.CallT
 
 	// check permission
 	if !irods_common.IsAccessAllowed(irodsPath, t.GetAccessiblePaths(&authValue)) {
-		outputErr := errors.Errorf("%q request is not permitted for path %q", t.GetName(), irodsPath)
+		outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), irodsPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 
 	if !fs.Exists(irodsPath) {
-		outputErr := errors.Errorf("path %q does not exist", irodsPath)
+		outputErr := errors.Newf("path %q does not exist", irodsPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 

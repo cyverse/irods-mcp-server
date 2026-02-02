@@ -108,17 +108,17 @@ func (t *ModifyAccess) Handler(ctx context.Context, request mcp.CallToolRequest)
 
 	accessLevel, ok := arguments["access_level"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get access_level from arguments")
+		return nil, errors.New("failed to get access_level from arguments")
 	}
 
 	userOrGroup, ok := arguments["user_or_group"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get user_or_group from arguments")
+		return nil, errors.New("failed to get user_or_group from arguments")
 	}
 
 	path, ok := arguments["path"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get path from arguments")
+		return nil, errors.New("failed to get path from arguments")
 	}
 
 	recurse, ok := arguments["recurse"].(bool)
@@ -142,12 +142,12 @@ func (t *ModifyAccess) Handler(ctx context.Context, request mcp.CallToolRequest)
 
 	// check permission
 	if !irods_common.IsAccessAllowed(irodsPath, t.GetAccessiblePaths(&authValue)) {
-		outputErr := errors.Errorf("%q request is not permitted for path %q", t.GetName(), irodsPath)
+		outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), irodsPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 
 	if !fs.Exists(irodsPath) {
-		outputErr := errors.Errorf("path %q does not exist", irodsPath)
+		outputErr := errors.Newf("path %q does not exist", irodsPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 

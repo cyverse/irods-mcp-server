@@ -101,22 +101,22 @@ func (t *AddAVU) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 
 	targetType, ok := arguments["target_type"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get target_type from arguments")
+		return nil, errors.New("failed to get target_type from arguments")
 	}
 
 	target, ok := arguments["target"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get target from arguments")
+		return nil, errors.New("failed to get target from arguments")
 	}
 
 	attribute, ok := arguments["attribute"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get attribute from arguments")
+		return nil, errors.New("failed to get attribute from arguments")
 	}
 
 	value, ok := arguments["value"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get value from arguments")
+		return nil, errors.New("failed to get value from arguments")
 	}
 
 	unit, ok := arguments["unit"].(string)
@@ -141,7 +141,7 @@ func (t *AddAVU) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 
 		// check permission
 		if !irods_common.IsAccessAllowed(target, t.GetAccessiblePaths(&authValue)) {
-			outputErr := errors.Errorf("%q request is not permitted for path %q", t.GetName(), target)
+			outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), target)
 			return irods_common.OutputMCPError(outputErr)
 		}
 	}
@@ -165,13 +165,13 @@ func (t *AddAVU) addAVU(fs *irodsclient_fs.FileSystem, targetType string, target
 	case "user":
 		return t.addAVUToUser(fs, target, attribute, value, unit)
 	default:
-		return "", errors.Errorf("invalid target_type %q", targetType)
+		return "", errors.Newf("invalid target_type %q", targetType)
 	}
 }
 
 func (t *AddAVU) addAVUToPath(fs *irodsclient_fs.FileSystem, path string, attribute string, value string, unit string) (string, error) {
 	if !fs.Exists(path) {
-		return "", errors.Errorf("path %q does not exist", path)
+		return "", errors.Newf("path %q does not exist", path)
 	}
 
 	err := fs.AddMetadata(path, attribute, value, unit)

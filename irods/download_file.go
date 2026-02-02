@@ -85,12 +85,12 @@ func (t *DownloadFile) Handler(ctx context.Context, request mcp.CallToolRequest)
 
 	localPath, ok := arguments["local_path"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get local_path from arguments")
+		return nil, errors.New("failed to get local_path from arguments")
 	}
 
 	irodsPath, ok := arguments["irods_path"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get irods_path from arguments")
+		return nil, errors.New("failed to get irods_path from arguments")
 	}
 
 	// auth
@@ -109,7 +109,7 @@ func (t *DownloadFile) Handler(ctx context.Context, request mcp.CallToolRequest)
 
 	// check permission
 	if !irods_common.IsAccessAllowed(irodsPath, t.GetAccessiblePaths(&authValue)) {
-		outputErr := errors.Errorf("%q request is not permitted for path %q", t.GetName(), irodsPath)
+		outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), irodsPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 

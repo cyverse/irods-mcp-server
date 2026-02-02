@@ -149,7 +149,7 @@ func AuthForTest() context.Context {
 func GetAuthValue(ctx context.Context) (AuthValue, error) {
 	authVal, ok := ctx.Value(AuthKey{}).(AuthValue)
 	if !ok {
-		return AuthValue{}, errors.Errorf("failed to get auth value from context")
+		return AuthValue{}, errors.New("failed to get auth value from context")
 	}
 	return authVal, nil
 }

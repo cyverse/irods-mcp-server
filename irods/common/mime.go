@@ -46,10 +46,13 @@ func IsTextFile(mimeType string) bool {
 	return strings.HasPrefix(mimeType, "text/") ||
 		mimeType == "application/json" ||
 		mimeType == "application/xml" ||
+		mimeType == "application/yaml" ||
 		mimeType == "application/javascript" ||
 		mimeType == "application/x-javascript" ||
+		mimeType == "application/x-yaml" ||
 		strings.Contains(mimeType, "+xml") ||
-		strings.Contains(mimeType, "+json")
+		strings.Contains(mimeType, "+json") ||
+		strings.Contains(mimeType, "+yaml")
 }
 
 // IsImageFile checks if the mimetype is for image files

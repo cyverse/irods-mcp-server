@@ -61,7 +61,7 @@ func (t *ListTickets) Handler(ctx context.Context, request mcp.CallToolRequest) 
 	}
 
 	if authValue.IsAnonymous() {
-		outputErr := errors.Errorf("anonymous user is not allowed to list tickets")
+		outputErr := errors.New("anonymous user is not allowed to list tickets")
 		return irods_common.OutputMCPError(outputErr)
 	}
 

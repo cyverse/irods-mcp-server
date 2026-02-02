@@ -86,12 +86,12 @@ func (t *SearchFilesByAVU) Handler(ctx context.Context, request mcp.CallToolRequ
 
 	attribute, ok := arguments["attribute"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get attribute from arguments")
+		return nil, errors.New("failed to get attribute from arguments")
 	}
 
 	value, ok := arguments["value"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get value from arguments")
+		return nil, errors.New("failed to get value from arguments")
 	}
 
 	// auth

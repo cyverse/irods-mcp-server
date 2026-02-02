@@ -19,50 +19,50 @@ import (
 )
 
 const (
-	IRODSFileSystemName = "iRODS"
+	IRODSResourceTemplateName = "iRODS"
 )
 
-type Filesystem struct {
+type IRODSResourceTemplate struct {
 	mcpServer *IRODSMCPServer
 	config    *common.Config
 }
 
-func NewFilesystem(svr *IRODSMCPServer) ResourceAPI {
-	return &Filesystem{
+func NewIRODSResourceTemplate(svr *IRODSMCPServer) ResourceTemplateAPI {
+	return &IRODSResourceTemplate{
 		mcpServer: svr,
 		config:    svr.GetConfig(),
 	}
 }
 
-func (r *Filesystem) GetScheme() string {
+func (r *IRODSResourceTemplate) GetScheme() string {
 	return irods_common.IRODSScheme
 }
 
-func (r *Filesystem) GetURI() string {
-	return r.GetScheme() + "://"
+func (r *IRODSResourceTemplate) GetURITemplate() string {
+	return r.GetScheme() + "://{path}"
 }
 
-func (r *Filesystem) GetName() string {
-	return IRODSFileSystemName
+func (r *IRODSResourceTemplate) GetName() string {
+	return IRODSResourceTemplateName
 }
 
-func (r *Filesystem) GetDescription() string {
+func (r *IRODSResourceTemplate) GetDescription() string {
 	return `Access to files (data-objects) and directories (collections) on the iRODS`
 }
 
-func (r *Filesystem) GetResource() mcp.Resource {
-	return mcp.NewResource(
-		r.GetURI(),
+func (r *IRODSResourceTemplate) GetResourceTemplate() mcp.ResourceTemplate {
+	return mcp.NewResourceTemplate(
+		r.GetURITemplate(),
 		r.GetName(),
-		mcp.WithResourceDescription(r.GetDescription()),
+		mcp.WithTemplateDescription(r.GetDescription()),
 	)
 }
 
-func (r *Filesystem) GetHandler() server.ResourceHandlerFunc {
+func (r *IRODSResourceTemplate) GetHandler() server.ResourceTemplateHandlerFunc {
 	return r.Handler
 }
 
-func (r *Filesystem) GetAccessiblePaths(authValue *common.AuthValue) []string {
+func (r *IRODSResourceTemplate) GetAccessiblePaths(authValue *common.AuthValue) []string {
 	account, err := r.mcpServer.GetIRODSAccountFromAuthValue(authValue)
 	if err != nil {
 		return []string{}
@@ -77,14 +77,18 @@ func (r *Filesystem) GetAccessiblePaths(authValue *common.AuthValue) []string {
 	}
 
 	if !account.IsAnonymousUser() {
+		paths = append(paths, homePath)
 		paths = append(paths, homePath+"/*")
 	}
 
 	return paths
 }
 
-func (r *Filesystem) Handler(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-	uri := request.Params.URI
+func (r *IRODSResourceTemplate) Handler(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+	uri, err := url.PathUnescape(request.Params.URI)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to unescape URI %q", request.Params.URI)
+	}
 
 	parsedURL, err := url.Parse(uri)
 	if err != nil {
@@ -93,7 +97,7 @@ func (r *Filesystem) Handler(ctx context.Context, request mcp.ReadResourceReques
 
 	// Check if the URI is valid
 	if strings.ToLower(parsedURL.Scheme) != r.GetScheme() {
-		return nil, errors.Errorf("unsupported URI scheme %q", parsedURL.Scheme)
+		return nil, errors.Newf("unsupported URI scheme %q", parsedURL.Scheme)
 	}
 
 	// auth
@@ -112,7 +116,7 @@ func (r *Filesystem) Handler(ctx context.Context, request mcp.ReadResourceReques
 
 	// check permission
 	if !irods_common.IsAccessAllowed(irodsPath, r.GetAccessiblePaths(&authValue)) {
-		return nil, errors.Errorf("request is not permitted for path %q", irodsPath)
+		return nil, errors.Newf("request is not permitted for path %q", irodsPath)
 	}
 
 	// Get file info
@@ -189,7 +193,7 @@ func (r *Filesystem) Handler(ctx context.Context, request mcp.ReadResourceReques
 	}
 }
 
-func (r *Filesystem) listCollection(fs *irodsclient_fs.FileSystem, sourceEntry *irodsclient_fs.Entry) (string, error) {
+func (r *IRODSResourceTemplate) listCollection(fs *irodsclient_fs.FileSystem, sourceEntry *irodsclient_fs.Entry) (string, error) {
 	outputEntries := []model.EntryWithAccess{}
 
 	dirEntries, err := fs.List(sourceEntry.Path)
@@ -222,7 +226,7 @@ func (r *Filesystem) listCollection(fs *irodsclient_fs.FileSystem, sourceEntry *
 	return string(jsonBytes), nil
 }
 
-func (r *Filesystem) readDataObject(fs *irodsclient_fs.FileSystem, sourcePath string, maxReadLen int64) ([]byte, error) {
+func (r *IRODSResourceTemplate) readDataObject(fs *irodsclient_fs.FileSystem, sourcePath string, maxReadLen int64) ([]byte, error) {
 	handle, err := fs.OpenFile(sourcePath, "", "r")
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to open file %q", sourcePath)

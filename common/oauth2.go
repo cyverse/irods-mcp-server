@@ -2,11 +2,9 @@ package common
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"path"
 	"strings"
 
 	"github.com/cockroachdb/errors"
@@ -74,10 +72,10 @@ func NewOAuth2(McpURL string, OIDCDiscoveryURL string, clientID, clientSecret st
 		return nil, err
 	}
 	if respBody.IntrospectionEndpoint == "" {
-		return nil, fmt.Errorf("the OIDC discovery document does not contain the token introspection endpoint")
+		return nil, errors.New("the OIDC discovery document does not contain the token introspection endpoint")
 	}
 	if respBody.UserinfoEndpoint == "" {
-		return nil, fmt.Errorf("the OIDC discovery document does not contain the userinfo endpoint")
+		return nil, errors.New("the OIDC discovery document does not contain the userinfo endpoint")
 	}
 
 	return &OAuth2{
@@ -91,9 +89,11 @@ func NewOAuth2(McpURL string, OIDCDiscoveryURL string, clientID, clientSecret st
 	}, nil
 }
 
-// RequireOAuth is a middleware that requires OAuth2 access token in the header, or else return 401 with WWW-Authenticate header.
-func (o *OAuth2) RequireOAuth(next http.Handler) http.HandlerFunc {
+// CheckOAuth is a middleware that checks OAuth2 access token in the header
+func (o *OAuth2) CheckOAuth(next http.Handler) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
+		defer next.ServeHTTP(writer, request)
+
 		logger := log.WithFields(log.Fields{
 			"uri":    request.RequestURI,
 			"method": request.Method,
@@ -101,48 +101,43 @@ func (o *OAuth2) RequireOAuth(next http.Handler) http.HandlerFunc {
 		logger.Debug("Request received, checking oauth")
 		authHeader := request.Header.Get("Authorization")
 		if authHeader == "" {
-			logger.Error("Authorization header is missing")
-			o.unauthorizedResponse(writer, request)
+			//logger.Error("Authorization header is missing")
 			return
 		}
 		token, isBearer := strings.CutPrefix(authHeader, "Bearer ")
 		if !isBearer {
-			logger.Error("Authorization header is not bearer token")
-			o.unauthorizedResponse(writer, request)
+			//logger.Error("Authorization header is not bearer token")
 			return
 		}
 		if token == "" {
-			logger.Error("token is empty")
-			o.unauthorizedResponse(writer, request)
+			//logger.Error("token is empty")
 			return
 		}
-		logger = logger.WithField("token", token)
+
+		logger = logger.WithField("token", o.getTokenForDisplay(token))
 		logger.Debug("bearer token in auth header")
+
 		valid, err := o.oauthIntrospectToken(o.tokenIntrospectionEndpoint, o.ClientID, o.ClientSecret, token)
 		if err != nil {
 			logger.WithError(err).Error("Failed to introspect token")
-			o.unauthorizedResponse(writer, request)
 			return
 		}
 		if !valid {
 			logger.Error("invalid token")
-			o.unauthorizedResponse(writer, request)
 			return
 		}
 		userinfo, err := o.oauthGetUserinfo(o.userinfoEndpoint, token)
 		if err != nil {
 			log.WithError(err).Error("Failed to get userinfo for token")
-			o.unauthorizedResponse(writer, request)
 			return
 		}
 
+		// oauth check was successful
 		logger.WithFields(log.Fields{"username": userinfo.PreferredUsername, "sub": userinfo.Sub}).Infoln("Request received, user is authenticated")
 
 		// propagate the username to auth module for irods access
 		// userinfo.PreferredUsername is expected to be the iRODS username
 		request.Header.Set("X-Forwarded-User", userinfo.PreferredUsername)
-
-		next.ServeHTTP(writer, request)
 	}
 }
 
@@ -202,7 +197,7 @@ func (o *OAuth2) oauthIntrospectToken(inspectEndpoint string, oauthClientID, oau
 			"code": resp.StatusCode,
 			"body": string(all),
 		}).Error("Failed to inspect token")
-		return false, fmt.Errorf("failed to inspect token: %s", resp.Status)
+		return false, errors.Newf("failed to inspect token %q", resp.Status)
 	}
 	var claims map[string]interface{}
 	err = json.NewDecoder(resp.Body).Decode(&claims)
@@ -218,22 +213,22 @@ func (o *OAuth2) oauthIntrospectToken(inspectEndpoint string, oauthClientID, oau
 	if !ok {
 		msg := "the token introspection response did not contain the active flag"
 		log.Error(msg)
-		return false, errors.Errorf(msg)
+		return false, errors.New(msg)
 	}
 	switch isActive := active.(type) {
 	case bool:
 		if !isActive {
 			msg := "invalid or expired access token"
 			log.WithField("claims", claims).Error(msg)
-			return false, errors.Errorf(msg)
+			return false, errors.New(msg)
 		}
 	default:
 		msg := "invalid value for active flag"
 		log.WithField("claims", claims).Error(msg)
-		return false, errors.Errorf(msg)
+		return false, errors.New(msg)
 	}
 	log.WithFields(log.Fields{
-		"token":  accessToken,
+		"token":  o.getTokenForDisplay(accessToken),
 		"active": active,
 		"claims": claims,
 	}).Info("Successfully inspect token, token is active")
@@ -407,17 +402,9 @@ func (o *OAuth2) HandleOIDCDiscoveryURI(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-func (o *OAuth2) unauthorizedResponse(w http.ResponseWriter, r *http.Request) {
-	protectedResourceURL, err := url.Parse(o.McpURL)
-	if err != nil {
-		return
+func (OAuth2) getTokenForDisplay(token string) string {
+	if len(token) <= 10 {
+		return token
 	}
-	protectedResourceURL.Path = path.Join(".well-known/oauth-protected-resource", protectedResourceURL.Path)
-	wwwAuthHeader := fmt.Sprintf(
-		`Bearer resource_metadata="%s"`,
-		protectedResourceURL.String(),
-	)
-
-	w.Header().Set("WWW-Authenticate", wwwAuthHeader)
-	w.WriteHeader(http.StatusUnauthorized)
+	return token[:5] + "..." + token[len(token)-5:]
 }

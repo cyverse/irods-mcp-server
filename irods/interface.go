@@ -14,11 +14,11 @@ type ToolAPI interface {
 	GetAccessiblePaths(authValue *common.AuthValue) []string
 }
 
-type ResourceAPI interface {
+type ResourceTemplateAPI interface {
 	GetScheme() string
-	GetURI() string
+	GetURITemplate() string
 	GetName() string
 	GetDescription() string
-	GetResource() mcp.Resource
-	GetHandler() server.ResourceHandlerFunc
+	GetResourceTemplate() mcp.ResourceTemplate
+	GetHandler() server.ResourceTemplateHandlerFunc
 }

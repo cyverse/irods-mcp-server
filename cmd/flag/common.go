@@ -79,7 +79,6 @@ func ProcessCommonFlags(command *cobra.Command) (*common.Config, bool, error) {
 	}
 
 	if commonFlagValues.Debug {
-		log.SetLevel(log.DebugLevel)
 		config.Debug = true
 	}
 
@@ -90,6 +89,10 @@ func ProcessCommonFlags(command *cobra.Command) (*common.Config, bool, error) {
 	err = config.Validate()
 	if err != nil {
 		return nil, false, err // stop here
+	}
+
+	if config.Debug {
+		log.SetLevel(log.DebugLevel)
 	}
 
 	if len(config.GetLogFilePath()) > 0 {

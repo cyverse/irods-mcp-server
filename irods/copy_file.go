@@ -85,11 +85,11 @@ func (t *CopyFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*m
 
 	sourcePath, ok := arguments["source_path"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get source_path from arguments")
+		return nil, errors.New("failed to get source_path from arguments")
 	}
 	destinationPath, ok := arguments["destination_path"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get destination_path from arguments")
+		return nil, errors.New("failed to get destination_path from arguments")
 	}
 
 	// auth
@@ -109,11 +109,11 @@ func (t *CopyFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*m
 
 	// check permission
 	if !irods_common.IsAccessAllowed(irodsSourcePath, t.GetAccessiblePaths(&authValue)) {
-		outputErr := errors.Errorf("%q request is not permitted for path %q", t.GetName(), irodsSourcePath)
+		outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), irodsSourcePath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 	if !irods_common.IsAccessAllowed(irodsDestinationPath, t.GetAccessiblePaths(&authValue)) {
-		outputErr := errors.Errorf("%q request is not permitted for path %q", t.GetName(), irodsDestinationPath)
+		outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), irodsDestinationPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 

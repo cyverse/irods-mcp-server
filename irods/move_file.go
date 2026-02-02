@@ -84,11 +84,11 @@ func (t *MoveFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*m
 
 	oldPath, ok := arguments["old_path"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get old_path from arguments")
+		return nil, errors.New("failed to get old_path from arguments")
 	}
 	newPath, ok := arguments["new_path"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get new_path from arguments")
+		return nil, errors.New("failed to get new_path from arguments")
 	}
 
 	// auth
@@ -108,11 +108,11 @@ func (t *MoveFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*m
 
 	// check permission
 	if !irods_common.IsAccessAllowed(irodsOldPath, t.GetAccessiblePaths(&authValue)) {
-		outputErr := errors.Errorf("%q request is not permitted for path %q", t.GetName(), irodsOldPath)
+		outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), irodsOldPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 	if !irods_common.IsAccessAllowed(irodsNewPath, t.GetAccessiblePaths(&authValue)) {
-		outputErr := errors.Errorf("%q request is not permitted for path %q", t.GetName(), irodsNewPath)
+		outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), irodsNewPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 

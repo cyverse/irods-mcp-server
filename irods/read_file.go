@@ -91,7 +91,7 @@ func (t *ReadFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*m
 
 	inputPath, ok := arguments["path"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get path from arguments")
+		return nil, errors.New("failed to get path from arguments")
 	}
 
 	inputOffsetFloat, ok := arguments["offset"].(float64)
@@ -129,7 +129,7 @@ func (t *ReadFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*m
 
 	// check permission
 	if !irods_common.IsAccessAllowed(irodsPath, t.GetAccessiblePaths(&authValue)) {
-		outputErr := errors.Errorf("%q request is not permitted for path %q", t.GetName(), irodsPath)
+		outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), irodsPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 

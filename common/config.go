@@ -84,7 +84,7 @@ func NewConfigFromFile(existingConfig *Config, filePath string) (*Config, error)
 	}
 
 	if st.IsDir() {
-		return nil, errors.Errorf("path %q is a directory", filePath)
+		return nil, errors.Newf("path %q is a directory", filePath)
 	}
 
 	ext := filepath.Ext(filePath)
@@ -230,7 +230,7 @@ func (config *Config) MakeLogDir() error {
 // makeDir makes a dir for use
 func (config *Config) makeDir(path string) error {
 	if len(path) == 0 {
-		return errors.Errorf("failed to create a dir with empty path")
+		return errors.New("failed to create a dir with empty path")
 	}
 
 	dirInfo, err := os.Stat(path)
@@ -249,12 +249,12 @@ func (config *Config) makeDir(path string) error {
 	}
 
 	if !dirInfo.IsDir() {
-		return errors.Errorf("a file %q exist, not a directory", path)
+		return errors.Newf("a file %q exist, not a directory", path)
 	}
 
 	dirPerm := dirInfo.Mode().Perm()
 	if dirPerm&0200 != 0200 {
-		return errors.Errorf("a dir %q exist, but does not have the write permission", path)
+		return errors.Newf("a dir %q exist, but does not have the write permission", path)
 	}
 
 	return nil
@@ -264,13 +264,13 @@ func (config *Config) makeDir(path string) error {
 func (config *Config) Validate() error {
 	if config.Remote {
 		if !strings.HasPrefix(config.ServiceURL, "http://") && !strings.HasPrefix(config.ServiceURL, "https://") {
-			return errors.Errorf("service URL %q must start with http:// or https://", config.ServiceURL)
+			return errors.Newf("service URL %q must start with http:// or https://", config.ServiceURL)
 		}
 	}
 
 	if config.IRODSProxyAuth {
 		if len(config.Config.Username) == 0 || len(config.Config.Password) == 0 {
-			return errors.Errorf("user and password must be set when proxy auth is enabled")
+			return errors.New("user and password must be set when proxy auth is enabled")
 		}
 	}
 

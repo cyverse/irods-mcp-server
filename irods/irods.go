@@ -13,7 +13,7 @@ type IRODSMCPServer struct {
 	config            *common.Config
 	mcpServer         *server.MCPServer
 	irodsfsClientPool *irods_common.IRODSFSClientPool
-	resources         []ResourceAPI
+	resourceTemplates []ResourceTemplateAPI
 	tools             []ToolAPI
 }
 
@@ -22,11 +22,11 @@ func NewIRODSMCPServer(svr *server.MCPServer, config *common.Config) (*IRODSMCPS
 		config:            config,
 		mcpServer:         svr,
 		irodsfsClientPool: irods_common.NewIRODSFSClientPool(),
-		resources:         []ResourceAPI{},
+		resourceTemplates: []ResourceTemplateAPI{},
 		tools:             []ToolAPI{},
 	}
 
-	err := s.registerResources()
+	err := s.registerResourceTemplates()
 	if err != nil {
 		return nil, err
 	}
@@ -69,17 +69,17 @@ func (svr *IRODSMCPServer) GetIRODSAccountFromAuthValue(authValue *common.AuthVa
 		// empty password
 		// proxy access with the provided username
 		if !svr.config.IRODSProxyAuth {
-			return nil, errors.Errorf("user and password must be set")
+			return nil, errors.New("user and password must be set")
 		}
 
 		if authValue.IsBasicAuth() {
-			return nil, errors.Errorf("proxy auth is not supported with basic auth")
+			return nil, errors.New("proxy auth is not supported with basic auth")
 		}
 
 		// we only support bearer auth for proxy user access
 		account.ClientUser = authValue.Username
 	} else {
-		return nil, errors.Errorf("invalid auth value with empty username and password")
+		return nil, errors.New("invalid auth value with empty username and password")
 	}
 
 	account.FixAuthConfiguration()
@@ -100,9 +100,9 @@ func (svr *IRODSMCPServer) GetMCPServer() *server.MCPServer {
 	return svr.mcpServer
 }
 
-func (svr *IRODSMCPServer) registerResources() error {
-	// Register the resources with the server
-	svr.addResource(NewFilesystem(svr))
+func (svr *IRODSMCPServer) registerResourceTemplates() error {
+	// Register the resource templates with the server
+	svr.addResourceTemplate(NewIRODSResourceTemplate(svr))
 	return nil
 }
 
@@ -133,11 +133,11 @@ func (svr *IRODSMCPServer) registerTools() error {
 	return nil
 }
 
-func (svr *IRODSMCPServer) addResource(rs ResourceAPI) {
-	svr.resources = append(svr.resources, rs)
+func (svr *IRODSMCPServer) addResourceTemplate(tpl ResourceTemplateAPI) {
+	svr.resourceTemplates = append(svr.resourceTemplates, tpl)
 
 	if svr.mcpServer != nil {
-		svr.mcpServer.AddResource(rs.GetResource(), rs.GetHandler())
+		svr.mcpServer.AddResourceTemplate(tpl.GetResourceTemplate(), tpl.GetHandler())
 	}
 }
 
@@ -149,14 +149,14 @@ func (svr *IRODSMCPServer) addTool(tool ToolAPI) {
 	}
 }
 
-func (svr *IRODSMCPServer) GetResources() []ResourceAPI {
-	return svr.resources
+func (svr *IRODSMCPServer) GetResourceTemplates() []ResourceTemplateAPI {
+	return svr.resourceTemplates
 }
 
-func (svr *IRODSMCPServer) GetResource(name string) ResourceAPI {
-	for _, resource := range svr.resources {
-		if resource.GetName() == name {
-			return resource
+func (svr *IRODSMCPServer) GetResourceTemplate(name string) ResourceTemplateAPI {
+	for _, resourceTemplate := range svr.resourceTemplates {
+		if resourceTemplate.GetName() == name {
+			return resourceTemplate
 		}
 	}
 

@@ -106,12 +106,12 @@ func (t *DeleteAVU) Handler(ctx context.Context, request mcp.CallToolRequest) (*
 
 	targetType, ok := arguments["target_type"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get target_type from arguments")
+		return nil, errors.New("failed to get target_type from arguments")
 	}
 
 	target, ok := arguments["target"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get target from arguments")
+		return nil, errors.New("failed to get target from arguments")
 	}
 
 	idFloat, ok := arguments["id"].(float64)
@@ -128,7 +128,7 @@ func (t *DeleteAVU) Handler(ctx context.Context, request mcp.CallToolRequest) (*
 	}
 
 	if id == 0 && attribute == "" {
-		return nil, errors.Errorf("either id or attribute must be provided")
+		return nil, errors.New("either id or attribute must be provided")
 	}
 
 	value, ok := arguments["value"].(string)
@@ -158,7 +158,7 @@ func (t *DeleteAVU) Handler(ctx context.Context, request mcp.CallToolRequest) (*
 
 		// check permission
 		if !irods_common.IsAccessAllowed(target, t.GetAccessiblePaths(&authValue)) {
-			outputErr := errors.Errorf("%q request is not permitted for path %q", t.GetName(), target)
+			outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), target)
 			return irods_common.OutputMCPError(outputErr)
 		}
 	}
@@ -182,13 +182,13 @@ func (t *DeleteAVU) deleteAVU(fs *irodsclient_fs.FileSystem, targetType string, 
 	case "user":
 		return t.deleteAVUFromUser(fs, target, id, attribute, value, unit)
 	default:
-		return "", errors.Errorf("invalid target_type %q", targetType)
+		return "", errors.Newf("invalid target_type %q", targetType)
 	}
 }
 
 func (t *DeleteAVU) deleteAVUFromPath(fs *irodsclient_fs.FileSystem, path string, id int64, attribute string, value string, unit string) (string, error) {
 	if !fs.Exists(path) {
-		return "", errors.Errorf("path %q does not exist", path)
+		return "", errors.Newf("path %q does not exist", path)
 	}
 
 	var err error

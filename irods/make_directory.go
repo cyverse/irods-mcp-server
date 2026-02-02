@@ -79,7 +79,7 @@ func (t *MakeDirectory) Handler(ctx context.Context, request mcp.CallToolRequest
 
 	path, ok := arguments["path"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get path from arguments")
+		return nil, errors.New("failed to get path from arguments")
 	}
 
 	// auth
@@ -98,7 +98,7 @@ func (t *MakeDirectory) Handler(ctx context.Context, request mcp.CallToolRequest
 
 	// check permission
 	if !irods_common.IsAccessAllowed(irodsPath, t.GetAccessiblePaths(&authValue)) {
-		outputErr := errors.Errorf("%q request is not permitted for path %q", t.GetName(), irodsPath)
+		outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), irodsPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 

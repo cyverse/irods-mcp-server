@@ -37,7 +37,7 @@ func (t *WriteFile) GetName() string {
 }
 
 func (t *WriteFile) GetDescription() string {
-	return `Write the patial content to a file (data-object) with the specified path and offset.
+	return `Write the partial content to a file (data-object) with the specified path and offset.
 	The specified path must be an iRODS path.
 	If the file is too large to be displayed inline, use the WebDAV URI to access it.`
 }
@@ -94,7 +94,7 @@ func (t *WriteFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*
 
 	inputPath, ok := arguments["path"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get path from arguments")
+		return nil, errors.New("failed to get path from arguments")
 	}
 
 	inputOffsetFloat, ok := arguments["offset"].(float64)
@@ -105,7 +105,7 @@ func (t *WriteFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*
 
 	inputContent, ok := arguments["content"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get content from arguments")
+		return nil, errors.Newf("failed to get content from arguments")
 	}
 
 	// auth
@@ -124,7 +124,7 @@ func (t *WriteFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*
 
 	// check permission
 	if !irods_common.IsAccessAllowed(irodsPath, t.GetAccessiblePaths(&authValue)) {
-		outputErr := errors.Errorf("%q request is not permitted for path %q", t.GetName(), irodsPath)
+		outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), irodsPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 
@@ -138,7 +138,7 @@ func (t *WriteFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*
 		}
 	} else {
 		if entry.IsDir() {
-			outputErr := errors.Errorf("path %q is a directory (collection)", irodsPath)
+			outputErr := errors.Newf("path %q is a directory (collection)", irodsPath)
 			return irods_common.OutputMCPError(outputErr)
 		}
 

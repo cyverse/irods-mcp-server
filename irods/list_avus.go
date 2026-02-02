@@ -86,12 +86,12 @@ func (t *ListAVUs) Handler(ctx context.Context, request mcp.CallToolRequest) (*m
 
 	targetType, ok := arguments["target_type"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get target_type from arguments")
+		return nil, errors.New("failed to get target_type from arguments")
 	}
 
 	target, ok := arguments["target"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get target from arguments")
+		return nil, errors.New("failed to get target from arguments")
 	}
 
 	// auth
@@ -111,7 +111,7 @@ func (t *ListAVUs) Handler(ctx context.Context, request mcp.CallToolRequest) (*m
 
 		// check permission
 		if !irods_common.IsAccessAllowed(target, t.GetAccessiblePaths(&authValue)) {
-			outputErr := errors.Errorf("%q request is not permitted for path %q", t.GetName(), target)
+			outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), target)
 			return irods_common.OutputMCPError(outputErr)
 		}
 	}
@@ -135,13 +135,13 @@ func (t *ListAVUs) listAVUs(fs *irodsclient_fs.FileSystem, targetType string, ta
 	case "user":
 		return t.listAVUsFromUser(fs, target)
 	default:
-		return "", errors.Errorf("invalid target_type %q", targetType)
+		return "", errors.Newf("invalid target_type %q", targetType)
 	}
 }
 
 func (t *ListAVUs) listAVUsFromPath(fs *irodsclient_fs.FileSystem, path string) (string, error) {
 	if !fs.Exists(path) {
-		return "", errors.Errorf("path %q does not exist", path)
+		return "", errors.Newf("path %q does not exist", path)
 	}
 
 	metadata, err := fs.ListMetadata(path)

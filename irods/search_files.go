@@ -82,7 +82,7 @@ func (t *SearchFiles) Handler(ctx context.Context, request mcp.CallToolRequest) 
 
 	inputPath, ok := arguments["path"].(string)
 	if !ok {
-		return nil, errors.Errorf("failed to get path from arguments")
+		return nil, errors.New("failed to get path from arguments")
 	}
 
 	// auth
@@ -107,12 +107,12 @@ func (t *SearchFiles) Handler(ctx context.Context, request mcp.CallToolRequest) 
 		irodsRootPath = irods_common.GetDir(irodsRootPath)
 
 		if !irods_common.IsAccessAllowed(irodsRootPath, t.GetAccessiblePaths(&authValue)) {
-			outputErr := errors.Errorf("%q request is not permitted for path %q", t.GetName(), irodsRootPath)
+			outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), irodsRootPath)
 			return irods_common.OutputMCPError(outputErr)
 		}
 	} else {
 		// no wildcard return error
-		outputErr := errors.Errorf("no wildcard is in the path %q", irodsPath)
+		outputErr := errors.Newf("no wildcard is in the path %q", irodsPath)
 		return irods_common.OutputMCPError(outputErr)
 	}
 
