@@ -88,7 +88,8 @@ func (t *DirectoryTree) Handler(ctx context.Context, request mcp.CallToolRequest
 
 	inputPath, ok := arguments["path"].(string)
 	if !ok {
-		return nil, errors.New("failed to get path from arguments")
+		outputErr := errors.New("failed to get path from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	inputDepthFloat, ok := arguments["depth"].(float64)
@@ -107,13 +108,15 @@ func (t *DirectoryTree) Handler(ctx context.Context, request mcp.CallToolRequest
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get auth value")
+		outputErr := errors.Wrapf(err, "failed to get auth value")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	// make a irods filesystem client
 	fs, err := t.mcpServer.GetIRODSFSClientFromAuthValue(&authValue)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create a irods fs client")
+		outputErr := errors.Wrapf(err, "failed to create a irods fs client")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	irodsPath := irods_common.MakeIRODSPath(t.config, fs.GetAccount(), inputPath)

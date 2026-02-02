@@ -101,22 +101,26 @@ func (t *AddAVU) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 
 	targetType, ok := arguments["target_type"].(string)
 	if !ok {
-		return nil, errors.New("failed to get target_type from arguments")
+		outputErr := errors.New("failed to get target_type from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	target, ok := arguments["target"].(string)
 	if !ok {
-		return nil, errors.New("failed to get target from arguments")
+		outputErr := errors.New("failed to get target from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	attribute, ok := arguments["attribute"].(string)
 	if !ok {
-		return nil, errors.New("failed to get attribute from arguments")
+		outputErr := errors.New("failed to get attribute from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	value, ok := arguments["value"].(string)
 	if !ok {
-		return nil, errors.New("failed to get value from arguments")
+		outputErr := errors.New("failed to get value from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	unit, ok := arguments["unit"].(string)
@@ -127,13 +131,15 @@ func (t *AddAVU) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get auth value")
+		outputErr := errors.Wrapf(err, "failed to get auth value")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	// make a irods filesystem client
 	fs, err := t.mcpServer.GetIRODSFSClientFromAuthValue(&authValue)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create a irods fs client")
+		outputErr := errors.Wrapf(err, "failed to create a irods fs client")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	if targetType == "path" {

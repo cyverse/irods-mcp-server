@@ -108,17 +108,20 @@ func (t *ModifyAccess) Handler(ctx context.Context, request mcp.CallToolRequest)
 
 	accessLevel, ok := arguments["access_level"].(string)
 	if !ok {
-		return nil, errors.New("failed to get access_level from arguments")
+		outputErr := errors.New("failed to get access_level from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	userOrGroup, ok := arguments["user_or_group"].(string)
 	if !ok {
-		return nil, errors.New("failed to get user_or_group from arguments")
+		outputErr := errors.New("failed to get user_or_group from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	path, ok := arguments["path"].(string)
 	if !ok {
-		return nil, errors.New("failed to get path from arguments")
+		outputErr := errors.New("failed to get path from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	recurse, ok := arguments["recurse"].(bool)
@@ -129,13 +132,15 @@ func (t *ModifyAccess) Handler(ctx context.Context, request mcp.CallToolRequest)
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get auth value")
+		outputErr := errors.Wrapf(err, "failed to get auth value")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	// make a irods filesystem client
 	fs, err := t.mcpServer.GetIRODSFSClientFromAuthValue(&authValue)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create a irods fs client")
+		outputErr := errors.Wrapf(err, "failed to create a irods fs client")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	irodsPath := irods_common.MakeIRODSPath(t.config, fs.GetAccount(), path)

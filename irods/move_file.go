@@ -84,23 +84,27 @@ func (t *MoveFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*m
 
 	oldPath, ok := arguments["old_path"].(string)
 	if !ok {
-		return nil, errors.New("failed to get old_path from arguments")
+		outputErr := errors.New("failed to get old_path from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 	newPath, ok := arguments["new_path"].(string)
 	if !ok {
-		return nil, errors.New("failed to get new_path from arguments")
+		outputErr := errors.New("failed to get new_path from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get auth value")
+		outputErr := errors.Wrapf(err, "failed to get auth value")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	// make a irods filesystem client
 	fs, err := t.mcpServer.GetIRODSFSClientFromAuthValue(&authValue)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create a irods fs client")
+		outputErr := errors.Wrapf(err, "failed to create a irods fs client")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	irodsOldPath := irods_common.MakeIRODSPath(t.config, fs.GetAccount(), oldPath)

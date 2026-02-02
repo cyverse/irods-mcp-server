@@ -52,7 +52,8 @@ func (t *ListAllowedDirectories) Handler(ctx context.Context, request mcp.CallTo
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get auth value")
+		outputErr := errors.Wrapf(err, "failed to get auth value")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	content, err := t.listAllowedDirectories(&authValue)

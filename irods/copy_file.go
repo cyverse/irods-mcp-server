@@ -85,23 +85,27 @@ func (t *CopyFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*m
 
 	sourcePath, ok := arguments["source_path"].(string)
 	if !ok {
-		return nil, errors.New("failed to get source_path from arguments")
+		outputErr := errors.New("failed to get source_path from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 	destinationPath, ok := arguments["destination_path"].(string)
 	if !ok {
-		return nil, errors.New("failed to get destination_path from arguments")
+		outputErr := errors.New("failed to get destination_path from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get auth value")
+		outputErr := errors.Wrapf(err, "failed to get auth value")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	// make a irods filesystem client
 	fs, err := t.mcpServer.GetIRODSFSClientFromAuthValue(&authValue)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create a irods fs client")
+		outputErr := errors.Wrapf(err, "failed to create a irods fs client")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	irodsSourcePath := irods_common.MakeIRODSPath(t.config, fs.GetAccount(), sourcePath)

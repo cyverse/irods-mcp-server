@@ -106,12 +106,14 @@ func (t *DeleteAVU) Handler(ctx context.Context, request mcp.CallToolRequest) (*
 
 	targetType, ok := arguments["target_type"].(string)
 	if !ok {
-		return nil, errors.New("failed to get target_type from arguments")
+		outputErr := errors.New("failed to get target_type from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	target, ok := arguments["target"].(string)
 	if !ok {
-		return nil, errors.New("failed to get target from arguments")
+		outputErr := errors.New("failed to get target from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	idFloat, ok := arguments["id"].(float64)
@@ -128,7 +130,8 @@ func (t *DeleteAVU) Handler(ctx context.Context, request mcp.CallToolRequest) (*
 	}
 
 	if id == 0 && attribute == "" {
-		return nil, errors.New("either id or attribute must be provided")
+		outputErr := errors.New("either id or attribute must be provided")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	value, ok := arguments["value"].(string)
@@ -144,13 +147,15 @@ func (t *DeleteAVU) Handler(ctx context.Context, request mcp.CallToolRequest) (*
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get auth value")
+		outputErr := errors.Wrapf(err, "failed to get auth value")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	// make a irods filesystem client
 	fs, err := t.mcpServer.GetIRODSFSClientFromAuthValue(&authValue)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create a irods fs client")
+		outputErr := errors.Wrapf(err, "failed to create a irods fs client")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	if targetType == "path" {
