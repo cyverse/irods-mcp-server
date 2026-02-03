@@ -84,14 +84,14 @@ func (t *SearchFilesByAVU) GetAccessiblePaths(authValue *common.AuthValue) []str
 func (t *SearchFilesByAVU) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	arguments := request.GetArguments()
 
-	attribute, ok := arguments["attribute"].(string)
-	if !ok {
+	attribute, err := irods_common.GetInputStringArgument(arguments, "attribute", true)
+	if err != nil {
 		outputErr := errors.New("failed to get attribute from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}
 
-	value, ok := arguments["value"].(string)
-	if !ok {
+	value, err := irods_common.GetInputStringArgument(arguments, "value", true)
+	if err != nil {
 		outputErr := errors.New("failed to get value from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}

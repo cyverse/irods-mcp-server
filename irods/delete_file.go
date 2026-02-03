@@ -77,9 +77,9 @@ func (t *DeleteFile) GetAccessiblePaths(authValue *common.AuthValue) []string {
 func (t *DeleteFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	arguments := request.GetArguments()
 
-	path, ok := arguments["path"].(string)
-	if !ok {
-		outputErr := errors.New("failed to get path from arguments")
+	path, err := irods_common.GetInputStringArgument(arguments, "path", true)
+	if err != nil {
+		outputErr := errors.Wrapf(err, "failed to get path from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}
 

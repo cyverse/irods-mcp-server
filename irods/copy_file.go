@@ -83,14 +83,15 @@ func (t *CopyFile) GetAccessiblePaths(authValue *common.AuthValue) []string {
 func (t *CopyFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	arguments := request.GetArguments()
 
-	sourcePath, ok := arguments["source_path"].(string)
-	if !ok {
-		outputErr := errors.New("failed to get source_path from arguments")
+	sourcePath, err := irods_common.GetInputStringArgument(arguments, "source_path", true)
+	if err != nil {
+		outputErr := errors.Wrapf(err, "failed to get source_path from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}
-	destinationPath, ok := arguments["destination_path"].(string)
-	if !ok {
-		outputErr := errors.New("failed to get destination_path from arguments")
+
+	destinationPath, err := irods_common.GetInputStringArgument(arguments, "destination_path", true)
+	if err != nil {
+		outputErr := errors.Wrapf(err, "failed to get destination_path from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}
 

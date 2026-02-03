@@ -83,14 +83,14 @@ func (t *DownloadFile) GetAccessiblePaths(authValue *common.AuthValue) []string 
 func (t *DownloadFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	arguments := request.GetArguments()
 
-	localPath, ok := arguments["local_path"].(string)
-	if !ok {
+	localPath, err := irods_common.GetInputStringArgument(arguments, "local_path", true)
+	if err != nil {
 		outputErr := errors.New("failed to get local_path from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}
 
-	irodsPath, ok := arguments["irods_path"].(string)
-	if !ok {
+	irodsPath, err := irods_common.GetInputStringArgument(arguments, "irods_path", true)
+	if err != nil {
 		outputErr := errors.New("failed to get irods_path from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}

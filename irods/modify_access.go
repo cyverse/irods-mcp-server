@@ -106,27 +106,28 @@ func (t *ModifyAccess) GetAccessiblePaths(authValue *common.AuthValue) []string 
 func (t *ModifyAccess) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	arguments := request.GetArguments()
 
-	accessLevel, ok := arguments["access_level"].(string)
-	if !ok {
+	accessLevel, err := irods_common.GetInputStringArgument(arguments, "access_level", true)
+	if err != nil {
 		outputErr := errors.New("failed to get access_level from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}
 
-	userOrGroup, ok := arguments["user_or_group"].(string)
-	if !ok {
+	userOrGroup, err := irods_common.GetInputStringArgument(arguments, "user_or_group", true)
+	if err != nil {
 		outputErr := errors.New("failed to get user_or_group from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}
 
-	path, ok := arguments["path"].(string)
-	if !ok {
+	path, err := irods_common.GetInputStringArgument(arguments, "path", true)
+	if err != nil {
 		outputErr := errors.New("failed to get path from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}
 
-	recurse, ok := arguments["recurse"].(bool)
-	if !ok {
-		recurse = false
+	recurse, err := irods_common.GetInputBooleanArgument(arguments, "recurse")
+	if err != nil {
+		outputErr := errors.New("failed to get recurse from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	// auth

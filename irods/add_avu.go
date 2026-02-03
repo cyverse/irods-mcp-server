@@ -8,14 +8,14 @@ import (
 	"github.com/cockroachdb/errors"
 	irodsclient_fs "github.com/cyverse/go-irodsclient/fs"
 	"github.com/cyverse/irods-mcp-server/common"
-	irods_common "github.com/cyverse/irods-mcp-server/irods/common"
+	iroirods_common "github.com/cyverse/irods-mcp-server/irods/common"
 	"github.com/cyverse/irods-mcp-server/irods/model"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
 
 const (
-	AddAVUName = irods_common.IRODSAPIPrefix + "add_avu"
+	AddAVUName = iroirods_common.IRODSAPIPrefix + "add_avu"
 )
 
 type AddAVU struct {
@@ -81,8 +81,8 @@ func (t *AddAVU) GetAccessiblePaths(authValue *common.AuthValue) []string {
 		return []string{}
 	}
 
-	homePath := irods_common.GetHomePath(t.config, account)
-	sharedPath := irods_common.GetSharedPath(t.config, account)
+	homePath := iroirods_common.GetHomePath(t.config, account)
+	sharedPath := iroirods_common.GetSharedPath(t.config, account)
 
 	paths := []string{
 		sharedPath + "/*",
@@ -99,56 +99,57 @@ func (t *AddAVU) GetAccessiblePaths(authValue *common.AuthValue) []string {
 func (t *AddAVU) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	arguments := request.GetArguments()
 
-	targetType, ok := arguments["target_type"].(string)
-	if !ok {
-		outputErr := errors.New("failed to get target_type from arguments")
-		return irods_common.OutputMCPError(outputErr)
+	targetType, err := iroirods_common.GetInputStringArgument(arguments, "target_type", true)
+	if err != nil {
+		outputErr := errors.Wrapf(err, "failed to get target_type from arguments")
+		return iroirods_common.OutputMCPError(outputErr)
 	}
 
-	target, ok := arguments["target"].(string)
-	if !ok {
-		outputErr := errors.New("failed to get target from arguments")
-		return irods_common.OutputMCPError(outputErr)
+	target, err := iroirods_common.GetInputStringArgument(arguments, "target", true)
+	if err != nil {
+		outputErr := errors.Wrapf(err, "failed to get target from arguments")
+		return iroirods_common.OutputMCPError(outputErr)
 	}
 
-	attribute, ok := arguments["attribute"].(string)
-	if !ok {
-		outputErr := errors.New("failed to get attribute from arguments")
-		return irods_common.OutputMCPError(outputErr)
+	attribute, err := iroirods_common.GetInputStringArgument(arguments, "attribute", true)
+	if err != nil {
+		outputErr := errors.Wrapf(err, "failed to get attribute from arguments")
+		return iroirods_common.OutputMCPError(outputErr)
 	}
 
-	value, ok := arguments["value"].(string)
-	if !ok {
-		outputErr := errors.New("failed to get value from arguments")
-		return irods_common.OutputMCPError(outputErr)
+	value, err := iroirods_common.GetInputStringArgument(arguments, "value", true)
+	if err != nil {
+		outputErr := errors.Wrapf(err, "failed to get value from arguments")
+		return iroirods_common.OutputMCPError(outputErr)
 	}
 
-	unit, ok := arguments["unit"].(string)
-	if !ok {
-		unit = ""
+	unit, err := iroirods_common.GetInputStringArgument(arguments, "unit", false)
+	if err != nil {
+		outputErr := errors.Wrapf(err, "failed to get unit from arguments")
+		return iroirods_common.OutputMCPError(outputErr)
 	}
 
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to get auth value")
-		return irods_common.OutputMCPError(outputErr)
+		return iroirods_common.OutputMCPError(outputErr)
 	}
 
 	// make a irods filesystem client
 	fs, err := t.mcpServer.GetIRODSFSClientFromAuthValue(&authValue)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to create a irods fs client")
-		return irods_common.OutputMCPError(outputErr)
+		return iroirods_common.OutputMCPError(outputErr)
 	}
 
 	if targetType == "path" {
-		target = irods_common.MakeIRODSPath(t.config, fs.GetAccount(), target)
+		target = iroirods_common.MakeIRODSPath(t.config, fs.GetAccount(), target)
 
 		// check permission
-		if !irods_common.IsAccessAllowed(target, t.GetAccessiblePaths(&authValue)) {
+		if !iroirods_common.IsAccessAllowed(target, t.GetAccessiblePaths(&authValue)) {
 			outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), target)
-			return irods_common.OutputMCPError(outputErr)
+			return iroirods_common.OutputMCPError(outputErr)
 		}
 	}
 
@@ -156,7 +157,7 @@ func (t *AddAVU) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 	content, err := t.addAVU(fs, targetType, target, attribute, value, unit)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to add AVU to %q in %q type, attr %q", target, targetType, attribute)
-		return irods_common.OutputMCPError(outputErr)
+		return iroirods_common.OutputMCPError(outputErr)
 	}
 
 	return mcp.NewToolResultText(content), nil

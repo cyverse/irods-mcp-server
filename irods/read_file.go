@@ -89,20 +89,25 @@ func (t *ReadFile) GetAccessiblePaths(authValue *common.AuthValue) []string {
 func (t *ReadFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	arguments := request.GetArguments()
 
-	inputPath, ok := arguments["path"].(string)
-	if !ok {
+	inputPath, err := irods_common.GetInputStringArgument(arguments, "path", true)
+	if err != nil {
 		outputErr := errors.New("failed to get path from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}
 
-	inputOffsetFloat, ok := arguments["offset"].(float64)
-	if !ok {
-		// default value
-		inputOffsetFloat = float64(0)
+	inputOffsetFloat, err := irods_common.GetInputNumberArgument(arguments, "offset")
+	if err != nil {
+		outputErr := errors.New("failed to get offset from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
-	inputLengthFloat, ok := arguments["length"].(float64)
-	if !ok {
+	inputLengthFloat, err := irods_common.GetInputNumberArgument(arguments, "length")
+	if err != nil {
+		outputErr := errors.New("failed to get length from arguments")
+		return irods_common.OutputMCPError(outputErr)
+	}
+
+	if inputLengthFloat <= 0 {
 		// default value
 		inputLengthFloat = float64(irods_common.MinReadLength)
 	}

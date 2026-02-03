@@ -77,8 +77,8 @@ func (t *MakeDirectory) GetAccessiblePaths(authValue *common.AuthValue) []string
 func (t *MakeDirectory) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	arguments := request.GetArguments()
 
-	path, ok := arguments["path"].(string)
-	if !ok {
+	path, err := irods_common.GetInputStringArgument(arguments, "path", true)
+	if err != nil {
 		outputErr := errors.New("failed to get path from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}

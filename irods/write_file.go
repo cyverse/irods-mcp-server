@@ -92,21 +92,25 @@ func (t *WriteFile) GetAccessiblePaths(authValue *common.AuthValue) []string {
 func (t *WriteFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	arguments := request.GetArguments()
 
-	inputPath, ok := arguments["path"].(string)
-	if !ok {
+	inputPath, err := irods_common.GetInputStringArgument(arguments, "path", true)
+	if err != nil {
 		outputErr := errors.New("failed to get path from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}
 
-	inputOffsetFloat, ok := arguments["offset"].(float64)
-	if !ok {
+	inputOffsetFloat, err := irods_common.GetInputNumberArgument(arguments, "offset")
+	if err != nil {
+		outputErr := errors.New("failed to get offset from arguments")
+		return irods_common.OutputMCPError(outputErr)
+	}
+	if inputOffsetFloat < 0 {
 		// default value
 		inputOffsetFloat = float64(0)
 	}
 
-	inputContent, ok := arguments["content"].(string)
-	if !ok {
-		outputErr := errors.Newf("failed to get content from arguments")
+	inputContent, err := irods_common.GetInputStringArgument(arguments, "content", true)
+	if err != nil {
+		outputErr := errors.New("failed to get content from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}
 

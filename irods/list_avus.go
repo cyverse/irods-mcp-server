@@ -84,14 +84,14 @@ func (t *ListAVUs) GetAccessiblePaths(authValue *common.AuthValue) []string {
 func (t *ListAVUs) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	arguments := request.GetArguments()
 
-	targetType, ok := arguments["target_type"].(string)
-	if !ok {
+	targetType, err := irods_common.GetInputStringArgument(arguments, "target_type", true)
+	if err != nil {
 		outputErr := errors.New("failed to get target_type from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}
 
-	target, ok := arguments["target"].(string)
-	if !ok {
+	target, err := irods_common.GetInputStringArgument(arguments, "target", true)
+	if err != nil {
 		outputErr := errors.New("failed to get target from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}

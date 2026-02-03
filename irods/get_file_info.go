@@ -86,8 +86,8 @@ func (t *GetFileInfo) GetAccessiblePaths(authValue *common.AuthValue) []string {
 func (t *GetFileInfo) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	arguments := request.GetArguments()
 
-	inputPath, ok := arguments["path"].(string)
-	if !ok {
+	inputPath, err := irods_common.GetInputStringArgument(arguments, "path", true)
+	if err != nil {
 		outputErr := errors.New("failed to get path from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}

@@ -88,21 +88,22 @@ func (t *UploadFile) GetAccessiblePaths(authValue *common.AuthValue) []string {
 func (t *UploadFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	arguments := request.GetArguments()
 
-	localPath, ok := arguments["local_path"].(string)
-	if !ok {
+	localPath, err := irods_common.GetInputStringArgument(arguments, "local_path", true)
+	if err != nil {
 		outputErr := errors.New("failed to get local_path from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}
 
-	irodsPath, ok := arguments["irods_path"].(string)
-	if !ok {
+	irodsPath, err := irods_common.GetInputStringArgument(arguments, "irods_path", true)
+	if err != nil {
 		outputErr := errors.New("failed to get irods_path from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}
 
-	isDir, ok := arguments["is_dir"].(bool)
-	if !ok {
-		isDir = false
+	isDir, err := irods_common.GetInputBooleanArgument(arguments, "is_dir")
+	if err != nil {
+		outputErr := errors.New("failed to get is_dir from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	// auth

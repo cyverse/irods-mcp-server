@@ -86,21 +86,22 @@ func (t *DirectoryTree) GetAccessiblePaths(authValue *common.AuthValue) []string
 func (t *DirectoryTree) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	arguments := request.GetArguments()
 
-	inputPath, ok := arguments["path"].(string)
-	if !ok {
+	inputPath, err := irods_common.GetInputStringArgument(arguments, "path", true)
+	if err != nil {
 		outputErr := errors.New("failed to get path from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}
 
-	inputDepthFloat, ok := arguments["depth"].(float64)
-	if !ok {
-		// default value
-		inputDepthFloat = float64(irods_common.DefaultTreeScanMaxDepth)
+	inputDepthFloat, err := irods_common.GetInputNumberArgument(arguments, "depth")
+	if err != nil {
+		outputErr := errors.New("failed to get depth from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	inputDepth := int(inputDepthFloat)
-	if inputDepth < 0 {
-		inputDepth = 1
+
+	if inputDepth <= 0 {
+		inputDepth = irods_common.DefaultTreeScanMaxDepth
 	} else if inputDepth > irods_common.MaxTreeScanDepth {
 		inputDepth = irods_common.MaxTreeScanDepth
 	}

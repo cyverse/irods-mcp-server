@@ -82,13 +82,13 @@ func (t *MoveFile) GetAccessiblePaths(authValue *common.AuthValue) []string {
 func (t *MoveFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	arguments := request.GetArguments()
 
-	oldPath, ok := arguments["old_path"].(string)
-	if !ok {
+	oldPath, err := irods_common.GetInputStringArgument(arguments, "old_path", true)
+	if err != nil {
 		outputErr := errors.New("failed to get old_path from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}
-	newPath, ok := arguments["new_path"].(string)
-	if !ok {
+	newPath, err := irods_common.GetInputStringArgument(arguments, "new_path", true)
+	if err != nil {
 		outputErr := errors.New("failed to get new_path from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}

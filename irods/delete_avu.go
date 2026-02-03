@@ -53,7 +53,7 @@ func (t *DeleteAVU) GetTool() mcp.Tool {
 			mcp.Required(),
 			mcp.Description("The target to delete AVU. Path for 'path' target_type, resource name for 'resource' target_type, and user name for 'user' target_type."),
 		),
-		mcp.WithString(
+		mcp.WithNumber(
 			"id",
 			mcp.DefaultNumber(0),
 			mcp.Description("The ID of the AVU to delete. This field can be ignored if attribute is provided."),
@@ -104,29 +104,30 @@ func (t *DeleteAVU) GetAccessiblePaths(authValue *common.AuthValue) []string {
 func (t *DeleteAVU) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	arguments := request.GetArguments()
 
-	targetType, ok := arguments["target_type"].(string)
-	if !ok {
-		outputErr := errors.New("failed to get target_type from arguments")
+	targetType, err := irods_common.GetInputStringArgument(arguments, "target_type", true)
+	if err != nil {
+		outputErr := errors.Wrapf(err, "failed to get target_type from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}
 
-	target, ok := arguments["target"].(string)
-	if !ok {
-		outputErr := errors.New("failed to get target from arguments")
+	target, err := irods_common.GetInputStringArgument(arguments, "target", true)
+	if err != nil {
+		outputErr := errors.Wrapf(err, "failed to get target from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}
 
-	idFloat, ok := arguments["id"].(float64)
-	if !ok {
-		// default value
-		idFloat = 0
+	idFloat, err := irods_common.GetInputNumberArgument(arguments, "id")
+	if err != nil {
+		outputErr := errors.Wrapf(err, "failed to get id from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	id := int64(idFloat)
 
-	attribute, ok := arguments["attribute"].(string)
-	if !ok {
-		attribute = ""
+	attribute, err := irods_common.GetInputStringArgument(arguments, "attribute", false)
+	if err != nil {
+		outputErr := errors.Wrapf(err, "failed to get attribute from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	if id == 0 && attribute == "" {
@@ -134,14 +135,16 @@ func (t *DeleteAVU) Handler(ctx context.Context, request mcp.CallToolRequest) (*
 		return irods_common.OutputMCPError(outputErr)
 	}
 
-	value, ok := arguments["value"].(string)
-	if !ok {
-		value = ""
+	value, err := irods_common.GetInputStringArgument(arguments, "value", false)
+	if err != nil {
+		outputErr := errors.Wrapf(err, "failed to get value from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
-	unit, ok := arguments["unit"].(string)
-	if !ok {
-		unit = ""
+	unit, err := irods_common.GetInputStringArgument(arguments, "unit", false)
+	if err != nil {
+		outputErr := errors.Wrapf(err, "failed to get unit from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	// auth

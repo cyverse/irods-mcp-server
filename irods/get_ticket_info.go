@@ -61,8 +61,8 @@ func (t *GetTicketInfo) GetAccessiblePaths(authValue *common.AuthValue) []string
 func (t *GetTicketInfo) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	arguments := request.GetArguments()
 
-	inputName, ok := arguments["name"].(string)
-	if !ok {
+	inputName, err := irods_common.GetInputStringArgument(arguments, "name", true)
+	if err != nil {
 		outputErr := errors.New("failed to get name from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}

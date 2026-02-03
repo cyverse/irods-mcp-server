@@ -87,20 +87,22 @@ func (t *ModifyAccessInheritance) GetAccessiblePaths(authValue *common.AuthValue
 func (t *ModifyAccessInheritance) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	arguments := request.GetArguments()
 
-	path, ok := arguments["path"].(string)
-	if !ok {
+	path, err := irods_common.GetInputStringArgument(arguments, "path", true)
+	if err != nil {
 		outputErr := errors.New("failed to get path from arguments")
 		return irods_common.OutputMCPError(outputErr)
 	}
 
-	inherit, ok := arguments["inherit"].(bool)
-	if !ok {
-		inherit = false
+	inherit, err := irods_common.GetInputBooleanArgument(arguments, "inherit")
+	if err != nil {
+		outputErr := errors.New("failed to get inherit from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
-	recurse, ok := arguments["recurse"].(bool)
-	if !ok {
-		recurse = false
+	recurse, err := irods_common.GetInputBooleanArgument(arguments, "recurse")
+	if err != nil {
+		outputErr := errors.New("failed to get recurse from arguments")
+		return irods_common.OutputMCPError(outputErr)
 	}
 
 	// auth
