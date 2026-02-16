@@ -16,7 +16,7 @@ const (
 )
 
 const (
-	IRODSAPIPrefix          string = "irods_"
+	IRODSAPIPrefix          string = "irods__"
 	DefaultTreeScanMaxDepth int    = 3
 	MaxTreeScanDepth        int    = 10
 	IRODSScheme             string = "irods"
