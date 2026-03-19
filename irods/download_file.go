@@ -8,13 +8,18 @@ import (
 	irodsclient_fs "github.com/cyverse/go-irodsclient/fs"
 	"github.com/cyverse/irods-mcp-server/common"
 	irods_common "github.com/cyverse/irods-mcp-server/irods/common"
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/google/jsonschema-go/jsonschema"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const (
 	DownloadFileName = irods_common.IRODSAPIPrefix + "download_file"
 )
+
+type DownloadFileInputArgs struct {
+	IRODSPath string `json:"irods_path"`
+	LocalPath string `json:"local_path"`
+}
 
 type DownloadFile struct {
 	mcpServer *IRODSMCPServer
@@ -38,24 +43,28 @@ func (t *DownloadFile) GetDescription() string {
 	Returns how to download the file using WebDAV, GoCommands (gocmd), and iCommands.`
 }
 
-func (t *DownloadFile) GetTool() mcp.Tool {
-	return mcp.NewTool(
-		t.GetName(),
-		mcp.WithDescription(t.GetDescription()),
-		mcp.WithString(
-			"irods_path",
-			mcp.Required(),
-			mcp.Description("The iRODS path to the file (data-object) to download"),
-		),
-		mcp.WithString(
-			"local_path",
-			mcp.Required(),
-			mcp.Description("The local path to download the file (data-object) to. Must be a full path including the file name."),
-		),
-	)
+func (t *DownloadFile) GetTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        t.GetName(),
+		Description: t.GetDescription(),
+		InputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"irods_path": {
+					Type:        "string",
+					Description: "The iRODS path to the file (data-object) to download.",
+				},
+				"local_path": {
+					Type:        "string",
+					Description: "The local path to download the file (data-object) to. Must be a full path including the file name.",
+				},
+			},
+			Required: []string{"irods_path", "local_path"},
+		},
+	}
 }
 
-func (t *DownloadFile) GetHandler() server.ToolHandlerFunc {
+func (t *DownloadFile) GetHandler() mcp.ToolHandler {
 	return t.Handler
 }
 
@@ -80,62 +89,54 @@ func (t *DownloadFile) GetAccessiblePaths(authValue *common.AuthValue) []string 
 	return paths
 }
 
-func (t *DownloadFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	arguments := request.GetArguments()
-
-	localPath, err := irods_common.GetInputStringArgument(arguments, "local_path", true)
+func (t *DownloadFile) Handler(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// arguments
+	args := DownloadFileInputArgs{}
+	err := irods_common.MarshalInputArguments(t.GetTool(), request, &args)
 	if err != nil {
-		outputErr := errors.New("failed to get local_path from arguments")
-		return irods_common.OutputMCPError(outputErr)
-	}
-
-	irodsPath, err := irods_common.GetInputStringArgument(arguments, "irods_path", true)
-	if err != nil {
-		outputErr := errors.New("failed to get irods_path from arguments")
-		return irods_common.OutputMCPError(outputErr)
+		outputErr := errors.Wrapf(err, "failed to marshal input arguments")
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to get auth value")
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// make a irods filesystem client
 	fs, err := t.mcpServer.GetIRODSFSClientFromAuthValue(&authValue)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to create a irods fs client")
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
-	irodsPath = irods_common.MakeIRODSPath(t.config, fs.GetAccount(), irodsPath)
+	irodsPath := irods_common.MakeIRODSPath(t.config, fs.GetAccount(), args.IRODSPath)
 
 	// check permission
 	if !irods_common.IsAccessAllowed(irodsPath, t.GetAccessiblePaths(&authValue)) {
 		outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), irodsPath)
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// Get file info
 	entry, err := fs.Stat(irodsPath)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to stat file info for %q", irodsPath)
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
-	content, err := t.downloadFile(fs, entry, localPath)
+	content, err := t.downloadFile(fs, entry, args.LocalPath)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to create an instruction to download file (data-object) or directory (collection) for %q", irodsPath)
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
-	return &mcp.CallToolResult{
-		Content: content,
-	}, nil
+	return irods_common.ToolTextResult(content), nil
 }
 
-func (t *DownloadFile) downloadFile(fs *irodsclient_fs.FileSystem, sourceEntry *irodsclient_fs.Entry, localPath string) ([]mcp.Content, error) {
+func (t *DownloadFile) downloadFile(fs *irodsclient_fs.FileSystem, sourceEntry *irodsclient_fs.Entry, localPath string) (string, error) {
 	webdavURI := irods_common.MakeWebdavURL(t.config, sourceEntry.Path, fs.GetAccount())
 
 	recursive := sourceEntry.IsDir()
@@ -145,12 +146,7 @@ func (t *DownloadFile) downloadFile(fs *irodsclient_fs.FileSystem, sourceEntry *
 	goCmdInst := t.getGoCommandsInstruction(sourceEntry.Path, localPath)
 	iCmdInst := t.getICommandsInstruction(sourceEntry.Path, localPath, recursive)
 
-	return []mcp.Content{
-		mcp.TextContent{
-			Type: "text",
-			Text: fmt.Sprintf("%s\n%s\n%s\n%s\n", curlInst, wgetInst, goCmdInst, iCmdInst),
-		},
-	}, nil
+	return fmt.Sprintf("%s\n%s\n%s\n%s\n", curlInst, wgetInst, goCmdInst, iCmdInst), nil
 }
 
 func (t *DownloadFile) getCurlInstruction(webdavURI string, localPath string, recursive bool) string {

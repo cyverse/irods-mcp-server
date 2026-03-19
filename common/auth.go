@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/cockroachdb/errors"
-	log "github.com/sirupsen/logrus"
 )
 
 // custom context key for storing the auth token
@@ -59,10 +58,20 @@ func NewAuthValueForHTTP(header http.Header) AuthValue {
 	return authVal
 }
 
-func NewAuthValueForSTDIO() AuthValue {
+func NewAuthValueForSTDIO(config *Config) AuthValue {
 	authVal := AuthValue{
 		Authorization: "",
 		ServerMode:    ServerModeSTDIO,
+	}
+
+	if len(config.Config.Username) > 0 {
+		authVal.Username = config.Config.Username
+	} else {
+		authVal.Username = "anonymous"
+	}
+
+	if len(config.Config.Password) > 0 {
+		authVal.Password = config.Config.Password
 	}
 
 	return authVal
@@ -121,29 +130,6 @@ func (a *AuthValue) parseBasicAuth() (string, string) {
 	}
 
 	return username, password
-}
-
-// AuthForHTTP extracts the auth token from the request headers.
-func AuthForHTTP(ctx context.Context, r *http.Request) context.Context {
-	logger := log.WithFields(log.Fields{})
-
-	authVal := NewAuthValueForHTTP(r.Header)
-
-	logger.Infof("auth: user=%s", authVal.Username)
-	return context.WithValue(ctx, AuthKey{}, authVal)
-}
-
-// AuthForStdio extracts the auth token from the environment
-func AuthForStdio(ctx context.Context) context.Context {
-	authVal := NewAuthValueForSTDIO()
-	return context.WithValue(ctx, AuthKey{}, authVal)
-}
-
-func AuthForTest() context.Context {
-	authVal := NewAuthValueForSTDIO()
-	authVal.Username = "anonymous"
-
-	return context.WithValue(context.Background(), AuthKey{}, authVal)
 }
 
 func GetAuthValue(ctx context.Context) (AuthValue, error) {

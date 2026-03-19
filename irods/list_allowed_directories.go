@@ -2,14 +2,13 @@ package irods
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/cockroachdb/errors"
 	"github.com/cyverse/irods-mcp-server/common"
 	irods_common "github.com/cyverse/irods-mcp-server/irods/common"
 	"github.com/cyverse/irods-mcp-server/irods/model"
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/google/jsonschema-go/jsonschema"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const (
@@ -37,39 +36,43 @@ func (t *ListAllowedDirectories) GetDescription() string {
 	The output also contains API names that can be requested to each directory (collection).`
 }
 
-func (t *ListAllowedDirectories) GetTool() mcp.Tool {
-	return mcp.NewTool(
-		t.GetName(),
-		mcp.WithDescription(t.GetDescription()),
-	)
+func (t *ListAllowedDirectories) GetTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        t.GetName(),
+		Description: t.GetDescription(),
+		InputSchema: &jsonschema.Schema{
+			Type:       "object",
+			Properties: map[string]*jsonschema.Schema{},
+		},
+	}
 }
 
-func (t *ListAllowedDirectories) GetHandler() server.ToolHandlerFunc {
+func (t *ListAllowedDirectories) GetHandler() mcp.ToolHandler {
 	return t.Handler
-}
-
-func (t *ListAllowedDirectories) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// auth
-	authValue, err := common.GetAuthValue(ctx)
-	if err != nil {
-		outputErr := errors.Wrapf(err, "failed to get auth value")
-		return irods_common.OutputMCPError(outputErr)
-	}
-
-	content, err := t.listAllowedDirectories(&authValue)
-	if err != nil {
-		outputErr := errors.Wrapf(err, "failed to list allowed directories (collections) and APIs")
-		return irods_common.OutputMCPError(outputErr)
-	}
-
-	return mcp.NewToolResultText(content), nil
 }
 
 func (t *ListAllowedDirectories) GetAccessiblePaths(authValue *common.AuthValue) []string {
 	return []string{}
 }
 
-func (t *ListAllowedDirectories) listAllowedDirectories(authValue *common.AuthValue) (string, error) {
+func (t *ListAllowedDirectories) Handler(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// auth
+	authValue, err := common.GetAuthValue(ctx)
+	if err != nil {
+		outputErr := errors.Wrapf(err, "failed to get auth value")
+		return irods_common.ToolErrorResult(outputErr), nil
+	}
+
+	content, err := t.listAllowedDirectories(&authValue)
+	if err != nil {
+		outputErr := errors.Wrapf(err, "failed to list allowed directories (collections) and APIs")
+		return irods_common.ToolErrorResult(outputErr), nil
+	}
+
+	return irods_common.ToolJSONResult(*content)
+}
+
+func (t *ListAllowedDirectories) listAllowedDirectories(authValue *common.AuthValue) (*model.ListAllowedDirectories, error) {
 	// collect all allowed directories (collections) and APIs
 	// key = path, value = list of API names
 	allowedAPIs := map[string][]string{}
@@ -97,14 +100,9 @@ func (t *ListAllowedDirectories) listAllowedDirectories(authValue *common.AuthVa
 		})
 	}
 
-	listAllowedDirectoriesOutput := model.ListAllowedDirectories{
+	listAllowedDirectoriesOutput := &model.ListAllowedDirectories{
 		Directories: allowedAPIList,
 	}
 
-	jsonBytes, err := json.Marshal(listAllowedDirectoriesOutput)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to marshal JSON")
-	}
-
-	return string(jsonBytes), nil
+	return listAllowedDirectoriesOutput, nil
 }

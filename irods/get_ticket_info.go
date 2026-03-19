@@ -2,20 +2,23 @@ package irods
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/cockroachdb/errors"
 	irodsclient_fs "github.com/cyverse/go-irodsclient/fs"
 	"github.com/cyverse/irods-mcp-server/common"
 	irods_common "github.com/cyverse/irods-mcp-server/irods/common"
 	"github.com/cyverse/irods-mcp-server/irods/model"
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/google/jsonschema-go/jsonschema"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const (
 	GetTicketInfoName = irods_common.IRODSAPIPrefix + "get_ticket_info"
 )
+
+type GetTicketInfoInputArgs struct {
+	Name string `json:"name"`
+}
 
 type GetTicketInfo struct {
 	mcpServer *IRODSMCPServer
@@ -38,19 +41,24 @@ func (t *GetTicketInfo) GetDescription() string {
 	Anonymous users are not allowed to get ticket information.`
 }
 
-func (t *GetTicketInfo) GetTool() mcp.Tool {
-	return mcp.NewTool(
-		t.GetName(),
-		mcp.WithDescription(t.GetDescription()),
-		mcp.WithString(
-			"name",
-			mcp.Required(),
-			mcp.Description("The name of the iRODS ticket to get information about"),
-		),
-	)
+func (t *GetTicketInfo) GetTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        t.GetName(),
+		Description: t.GetDescription(),
+		InputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"name": {
+					Type:        "string",
+					Description: "The name of the iRODS ticket to get information about.",
+				},
+			},
+			Required: []string{"name"},
+		},
+	}
 }
 
-func (t *GetTicketInfo) GetHandler() server.ToolHandlerFunc {
+func (t *GetTicketInfo) GetHandler() mcp.ToolHandler {
 	return t.Handler
 }
 
@@ -58,64 +66,59 @@ func (t *GetTicketInfo) GetAccessiblePaths(authValue *common.AuthValue) []string
 	return []string{}
 }
 
-func (t *GetTicketInfo) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	arguments := request.GetArguments()
-
-	inputName, err := irods_common.GetInputStringArgument(arguments, "name", true)
+func (t *GetTicketInfo) Handler(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// arguments
+	args := GetTicketInfoInputArgs{}
+	err := irods_common.MarshalInputArguments(t.GetTool(), request, &args)
 	if err != nil {
-		outputErr := errors.New("failed to get name from arguments")
-		return irods_common.OutputMCPError(outputErr)
+		outputErr := errors.Wrapf(err, "failed to marshal input arguments")
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to get auth value")
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	if authValue.IsAnonymous() {
 		outputErr := errors.New("anonymous user is not allowed to list tickets")
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// make a irods filesystem client
 	fs, err := t.mcpServer.GetIRODSFSClientFromAuthValue(&authValue)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to create a irods fs client")
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// get
-	content, err := t.getTicketInfo(fs, inputName)
+	content, err := t.getTicketInfo(fs, args.Name)
 	if err != nil {
-		outputErr := errors.Wrapf(err, "failed to get ticket info for %q", inputName)
-		return irods_common.OutputMCPError(outputErr)
+		outputErr := errors.Wrapf(err, "failed to get ticket info for %q", args.Name)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
-	return mcp.NewToolResultText(content), nil
+	return irods_common.ToolJSONResult(*content)
 }
 
-func (t *GetTicketInfo) getTicketInfo(fs *irodsclient_fs.FileSystem, ticketName string) (string, error) {
+func (t *GetTicketInfo) getTicketInfo(fs *irodsclient_fs.FileSystem, ticketName string) (*model.TicketWithRestrictions, error) {
 	ticket, err := fs.GetTicket(ticketName)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to get ticket")
+		return nil, errors.Wrapf(err, "failed to get ticket")
 	}
 
 	restrictions, err := fs.GetTicketRestrictions(ticket.ID)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to get ticket restrictions for %q", ticket.Name)
+		return nil, errors.Wrapf(err, "failed to get ticket restrictions for %q", ticket.Name)
 	}
 
-	outputTicket := model.TicketWithRestrictions{
+	outputTicket := &model.TicketWithRestrictions{
 		Ticket:       ticket,
 		Restrictions: restrictions,
 	}
 
-	jsonBytes, err := json.Marshal(outputTicket)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to marshal JSON")
-	}
-
-	return string(jsonBytes), nil
+	return outputTicket, nil
 }

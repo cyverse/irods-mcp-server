@@ -9,13 +9,19 @@ import (
 	"github.com/cyverse/irods-mcp-server/common"
 	irods_common "github.com/cyverse/irods-mcp-server/irods/common"
 	"github.com/cyverse/irods-mcp-server/irods/model"
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/google/jsonschema-go/jsonschema"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const (
 	ModifyAccessInheritanceName = irods_common.IRODSAPIPrefix + "modify_access_inheritance"
 )
+
+type ModifyAccessInheritanceInputArgs struct {
+	Path    string `json:"path"`
+	Inherit bool   `json:"inherit"`
+	Recurse bool   `json:"recurse,omitempty"`
+}
 
 type ModifyAccessInheritance struct {
 	mcpServer *IRODSMCPServer
@@ -37,29 +43,33 @@ func (t *ModifyAccessInheritance) GetDescription() string {
 	return `Modify data access inheritance flag of a file or directory.`
 }
 
-func (t *ModifyAccessInheritance) GetTool() mcp.Tool {
-	return mcp.NewTool(
-		t.GetName(),
-		mcp.WithDescription(t.GetDescription()),
-		mcp.WithString(
-			"path",
-			mcp.Required(),
-			mcp.Description("The path to the directory (collection) to modify access."),
-		),
-		mcp.WithBoolean(
-			"inherit",
-			mcp.Required(),
-			mcp.Description("If set, access to the directory (collection) will be inherited by all child entries."),
-		),
-		mcp.WithBoolean(
-			"recurse",
-			mcp.DefaultBool(false),
-			mcp.Description("If set, apply the inheritance flag to all entries within the given directory (collection) recursively."),
-		),
-	)
+func (t *ModifyAccessInheritance) GetTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        t.GetName(),
+		Description: t.GetDescription(),
+		InputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"path": {
+					Type:        "string",
+					Description: "The path to the directory (collection) to modify access.",
+				},
+				"inherit": {
+					Type:        "boolean",
+					Description: "If set, access to the directory (collection) will be inherited by all child entries.",
+				},
+				"recurse": {
+					Type:        "boolean",
+					Description: "If set, apply the inheritance flag to all entries within the given directory (collection) recursively.",
+					Default:     json.RawMessage("false"),
+				},
+			},
+			Required: []string{"path", "inherit"},
+		},
+	}
 }
 
-func (t *ModifyAccessInheritance) GetHandler() server.ToolHandlerFunc {
+func (t *ModifyAccessInheritance) GetHandler() mcp.ToolHandler {
 	return t.Handler
 }
 
@@ -84,79 +94,62 @@ func (t *ModifyAccessInheritance) GetAccessiblePaths(authValue *common.AuthValue
 	return paths
 }
 
-func (t *ModifyAccessInheritance) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	arguments := request.GetArguments()
-
-	path, err := irods_common.GetInputStringArgument(arguments, "path", true)
+func (t *ModifyAccessInheritance) Handler(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// arguments
+	args := ModifyAccessInheritanceInputArgs{}
+	err := irods_common.MarshalInputArguments(t.GetTool(), request, &args)
 	if err != nil {
-		outputErr := errors.New("failed to get path from arguments")
-		return irods_common.OutputMCPError(outputErr)
-	}
-
-	inherit, err := irods_common.GetInputBooleanArgument(arguments, "inherit")
-	if err != nil {
-		outputErr := errors.New("failed to get inherit from arguments")
-		return irods_common.OutputMCPError(outputErr)
-	}
-
-	recurse, err := irods_common.GetInputBooleanArgument(arguments, "recurse")
-	if err != nil {
-		outputErr := errors.New("failed to get recurse from arguments")
-		return irods_common.OutputMCPError(outputErr)
+		outputErr := errors.Wrapf(err, "failed to marshal input arguments")
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to get auth value")
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// make a irods filesystem client
 	fs, err := t.mcpServer.GetIRODSFSClientFromAuthValue(&authValue)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to create a irods fs client")
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
-	irodsPath := irods_common.MakeIRODSPath(t.config, fs.GetAccount(), path)
+	irodsPath := irods_common.MakeIRODSPath(t.config, fs.GetAccount(), args.Path)
 
 	// check permission
 	if !irods_common.IsAccessAllowed(irodsPath, t.GetAccessiblePaths(&authValue)) {
 		outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), irodsPath)
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	if !fs.Exists(irodsPath) {
 		outputErr := errors.Newf("path %q does not exist", irodsPath)
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// Modify Access Inheritance
-	content, err := t.modifyAccessInheritance(fs, irodsPath, inherit, recurse)
+	content, err := t.modifyAccessInheritance(fs, irodsPath, args.Inherit, args.Recurse)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to modify access inheritance for %q", irodsPath)
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
-	return mcp.NewToolResultText(content), nil
+	return irods_common.ToolJSONResult(*content)
 }
 
-func (t *ModifyAccessInheritance) modifyAccessInheritance(fs *irodsclient_fs.FileSystem, path string, inherit bool, recurse bool) (string, error) {
+func (t *ModifyAccessInheritance) modifyAccessInheritance(fs *irodsclient_fs.FileSystem, path string, inherit bool, recurse bool) (*model.ModifyAccessInheritanceOutput, error) {
 	err := fs.ChangeDirACLInheritance(path, inherit, recurse, false)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to change access inheritance for %q", path)
+		return nil, errors.Wrapf(err, "failed to change access inheritance for %q", path)
 	}
 
-	modifyAccessInheritanceOutput := model.ModifyAccessInheritanceOutput{
+	modifyAccessInheritanceOutput := &model.ModifyAccessInheritanceOutput{
 		Path:    path,
 		Inherit: inherit,
 	}
 
-	jsonBytes, err := json.Marshal(modifyAccessInheritanceOutput)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to marshal JSON")
-	}
-
-	return string(jsonBytes), nil
+	return modifyAccessInheritanceOutput, nil
 }

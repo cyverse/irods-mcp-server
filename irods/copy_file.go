@@ -2,7 +2,6 @@ package irods
 
 import (
 	"context"
-	"encoding/json"
 	"path"
 
 	"github.com/cockroachdb/errors"
@@ -10,13 +9,18 @@ import (
 	"github.com/cyverse/irods-mcp-server/common"
 	irods_common "github.com/cyverse/irods-mcp-server/irods/common"
 	"github.com/cyverse/irods-mcp-server/irods/model"
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/google/jsonschema-go/jsonschema"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const (
 	CopyFileName = irods_common.IRODSAPIPrefix + "copy_file"
 )
+
+type CopyFileInputArgs struct {
+	SourcePath      string `json:"source_path"`
+	DestinationPath string `json:"destination_path"`
+}
 
 type CopyFile struct {
 	mcpServer *IRODSMCPServer
@@ -38,24 +42,28 @@ func (t *CopyFile) GetDescription() string {
 	return `Copy a file (data-object) or directory (collection) to a new location.`
 }
 
-func (t *CopyFile) GetTool() mcp.Tool {
-	return mcp.NewTool(
-		t.GetName(),
-		mcp.WithDescription(t.GetDescription()),
-		mcp.WithString(
-			"source_path",
-			mcp.Required(),
-			mcp.Description("The path to the source file (data-object) or directory (collection). If directory path is given, the entire directory and its contents will be copied."),
-		),
-		mcp.WithString(
-			"destination_path",
-			mcp.Required(),
-			mcp.Description("The new, complete path to copy the file (data-object) or directory (collection) to, including its new name. The path must not already exist."),
-		),
-	)
+func (t *CopyFile) GetTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        t.GetName(),
+		Description: t.GetDescription(),
+		InputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"source_path": {
+					Type:        "string",
+					Description: "The path to the source file (data-object) or directory (collection). If directory path is given, the entire directory and its contents will be copied.",
+				},
+				"destination_path": {
+					Type:        "string",
+					Description: "The new, complete path to copy the file (data-object) or directory (collection) to, including its new name. The path must not already exist.",
+				},
+			},
+			Required: []string{"source_path", "destination_path"},
+		},
+	}
 }
 
-func (t *CopyFile) GetHandler() server.ToolHandlerFunc {
+func (t *CopyFile) GetHandler() mcp.ToolHandler {
 	return t.Handler
 }
 
@@ -80,83 +88,72 @@ func (t *CopyFile) GetAccessiblePaths(authValue *common.AuthValue) []string {
 	return paths
 }
 
-func (t *CopyFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	arguments := request.GetArguments()
-
-	sourcePath, err := irods_common.GetInputStringArgument(arguments, "source_path", true)
+func (t *CopyFile) Handler(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// arguments
+	args := CopyFileInputArgs{}
+	err := irods_common.MarshalInputArguments(t.GetTool(), request, &args)
 	if err != nil {
-		outputErr := errors.Wrapf(err, "failed to get source_path from arguments")
-		return irods_common.OutputMCPError(outputErr)
-	}
-
-	destinationPath, err := irods_common.GetInputStringArgument(arguments, "destination_path", true)
-	if err != nil {
-		outputErr := errors.Wrapf(err, "failed to get destination_path from arguments")
-		return irods_common.OutputMCPError(outputErr)
+		outputErr := errors.Wrapf(err, "failed to marshal input arguments")
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to get auth value")
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// make a irods filesystem client
 	fs, err := t.mcpServer.GetIRODSFSClientFromAuthValue(&authValue)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to create a irods fs client")
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
-	irodsSourcePath := irods_common.MakeIRODSPath(t.config, fs.GetAccount(), sourcePath)
-	irodsDestinationPath := irods_common.MakeIRODSPath(t.config, fs.GetAccount(), destinationPath)
+	irodsSourcePath := irods_common.MakeIRODSPath(t.config, fs.GetAccount(), args.SourcePath)
+	irodsDestinationPath := irods_common.MakeIRODSPath(t.config, fs.GetAccount(), args.DestinationPath)
 
 	// check permission
 	if !irods_common.IsAccessAllowed(irodsSourcePath, t.GetAccessiblePaths(&authValue)) {
 		outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), irodsSourcePath)
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 	if !irods_common.IsAccessAllowed(irodsDestinationPath, t.GetAccessiblePaths(&authValue)) {
 		outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), irodsDestinationPath)
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// Copy file
 	sourceEntry, err := fs.Stat(irodsSourcePath)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to stat file or directory info for %q", irodsSourcePath)
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	content, err := t.copyFile(fs, sourceEntry, irodsDestinationPath)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to copy file (data-object) or directory (collection) from %q to %q", irodsSourcePath, irodsDestinationPath)
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
-	return mcp.NewToolResultText(content), nil
+	return irods_common.ToolJSONResult(*content)
 }
 
-func (t *CopyFile) copyFile(fs *irodsclient_fs.FileSystem, sourceEntry *irodsclient_fs.Entry, destPath string) (string, error) {
+func (t *CopyFile) copyFile(fs *irodsclient_fs.FileSystem, sourceEntry *irodsclient_fs.Entry, destPath string) (*model.CopyFileOutput, error) {
 	sourceEntries, copiedEntries, err := t.copyFileInternal(fs, sourceEntry, destPath)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	fileCopyOutput := model.CopyFileOutput{
+	fileCopyOutput := &model.CopyFileOutput{
 		SourcePath:          sourceEntry.Path,
 		DestinationPath:     destPath,
 		SourceEntryInfoList: sourceEntries,
 		CopiedEntryInfoList: copiedEntries,
 	}
 
-	jsonBytes, err := json.Marshal(fileCopyOutput)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to marshal JSON")
-	}
-
-	return string(jsonBytes), nil
+	return fileCopyOutput, nil
 }
 
 func (t *CopyFile) copyFileInternal(fs *irodsclient_fs.FileSystem, sourceEntry *irodsclient_fs.Entry, destPath string) ([]*irodsclient_fs.Entry, []*irodsclient_fs.Entry, error) {

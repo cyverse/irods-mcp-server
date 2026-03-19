@@ -2,8 +2,6 @@ package irods
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
@@ -14,8 +12,7 @@ import (
 	"github.com/cyverse/irods-mcp-server/common"
 	irods_common "github.com/cyverse/irods-mcp-server/irods/common"
 	"github.com/cyverse/irods-mcp-server/irods/model"
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const (
@@ -50,15 +47,15 @@ func (r *IRODSResourceTemplate) GetDescription() string {
 	return `Access to files (data-objects) and directories (collections) on the iRODS`
 }
 
-func (r *IRODSResourceTemplate) GetResourceTemplate() mcp.ResourceTemplate {
-	return mcp.NewResourceTemplate(
-		r.GetURITemplate(),
-		r.GetName(),
-		mcp.WithTemplateDescription(r.GetDescription()),
-	)
+func (r *IRODSResourceTemplate) GetResourceTemplate() *mcp.ResourceTemplate {
+	return &mcp.ResourceTemplate{
+		Name:        r.GetName(),
+		Description: r.GetDescription(),
+		URITemplate: r.GetURITemplate(),
+	}
 }
 
-func (r *IRODSResourceTemplate) GetHandler() server.ResourceTemplateHandlerFunc {
+func (r *IRODSResourceTemplate) GetHandler() mcp.ResourceHandler {
 	return r.Handler
 }
 
@@ -84,7 +81,7 @@ func (r *IRODSResourceTemplate) GetAccessiblePaths(authValue *common.AuthValue) 
 	return paths
 }
 
-func (r *IRODSResourceTemplate) Handler(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+func (r *IRODSResourceTemplate) Handler(ctx context.Context, request *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 	uri, err := url.PathUnescape(request.Params.URI)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to unescape URI %q", request.Params.URI)
@@ -132,26 +129,15 @@ func (r *IRODSResourceTemplate) Handler(ctx context.Context, request mcp.ReadRes
 			return nil, errors.Wrapf(err, "failed to list directory (collection) %q", irodsPath)
 		}
 
-		return []mcp.ResourceContents{
-			mcp.TextResourceContents{
-				URI:      uri,
-				MIMEType: "application/json",
-				Text:     listOutput,
-			},
-		}, nil
+		return irods_common.ResourceJSONResult(uri, listOutput)
 	}
 
 	// file
 	webdavURL := irods_common.MakeWebdavURL(r.config, sourceEntry.Path, fs.GetAccount())
 	if sourceEntry.Size > irods_common.MaxInlineSize {
 		// file is too large to inline, return a reference to WebDAV URL
-		return []mcp.ResourceContents{
-			mcp.TextResourceContents{
-				URI:      uri,
-				MIMEType: "text/plain",
-				Text:     fmt.Sprintf("File is too large to display inline (%d bytes). Access it via WebDAV URI: %q.", sourceEntry.Size, webdavURL),
-			},
-		}, nil
+		return irods_common.ResourceTextResult(uri, "text/plain",
+			fmt.Sprintf("File is too large to display inline (%d bytes). Access it via WebDAV URI: %q.", sourceEntry.Size, webdavURL))
 	}
 
 	// read the file content
@@ -163,42 +149,24 @@ func (r *IRODSResourceTemplate) Handler(ctx context.Context, request mcp.ReadRes
 	mimeType := irods_common.DetectMimeTypeWithContent(irodsPath, 0, content)
 	if irods_common.IsTextFile(mimeType) {
 		// text file
-		return []mcp.ResourceContents{
-			mcp.TextResourceContents{
-				URI:      uri,
-				MIMEType: mimeType,
-				Text:     string(content),
-			},
-		}, nil
+		return irods_common.ResourceTextResult(uri, mimeType, string(content))
 	} else {
 		// binary file
 		if sourceEntry.Size <= irods_common.MaxBase64Size {
 			// file is small enough to base64 encode
-			return []mcp.ResourceContents{
-				mcp.BlobResourceContents{
-					URI:      uri,
-					MIMEType: mimeType,
-					Blob:     base64.StdEncoding.EncodeToString(content),
-				},
-			}, nil
+			return irods_common.ResourceBlobResult(uri, mimeType, content)
 		} else {
-			return []mcp.ResourceContents{
-				mcp.TextResourceContents{
-					URI:      uri,
-					MIMEType: "text/plain",
-					Text:     fmt.Sprintf("Binary file (%q, %d bytes) is too large to encode to base64 format. Access it via WebDAV URI: %q.", mimeType, sourceEntry.Size, webdavURL),
-				},
-			}, nil
+			return irods_common.ResourceTextResult(uri, "text/plain", fmt.Sprintf("Binary file (%q, %d bytes) is too large to encode to base64 format. Access it via WebDAV URI: %q.", mimeType, sourceEntry.Size, webdavURL))
 		}
 	}
 }
 
-func (r *IRODSResourceTemplate) listCollection(fs *irodsclient_fs.FileSystem, sourceEntry *irodsclient_fs.Entry) (string, error) {
+func (r *IRODSResourceTemplate) listCollection(fs *irodsclient_fs.FileSystem, sourceEntry *irodsclient_fs.Entry) (*model.ListDirectoryOutput, error) {
 	outputEntries := []model.EntryWithAccess{}
 
 	dirEntries, err := fs.List(sourceEntry.Path)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to list directory (collection) %q", sourceEntry.Path)
+		return nil, errors.Wrapf(err, "failed to list directory (collection) %q", sourceEntry.Path)
 	}
 
 	for _, dirEntry := range dirEntries {
@@ -211,19 +179,14 @@ func (r *IRODSResourceTemplate) listCollection(fs *irodsclient_fs.FileSystem, so
 		outputEntries = append(outputEntries, objStruct)
 	}
 
-	listDirectoryOutput := model.ListDirectoryOutput{
+	listDirectoryOutput := &model.ListDirectoryOutput{
 		Directory:            sourceEntry,
 		DirectoryResourceURI: irods_common.MakeResourceURI(sourceEntry.Path),
 		DirectoryWebDAVURI:   irods_common.MakeWebdavURL(r.config, sourceEntry.Path, fs.GetAccount()),
 		DirectoryEntries:     outputEntries,
 	}
 
-	jsonBytes, err := json.Marshal(listDirectoryOutput)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to marshal JSON")
-	}
-
-	return string(jsonBytes), nil
+	return listDirectoryOutput, nil
 }
 
 func (r *IRODSResourceTemplate) readDataObject(fs *irodsclient_fs.FileSystem, sourcePath string, maxReadLen int64) ([]byte, error) {

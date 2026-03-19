@@ -2,20 +2,24 @@ package irods
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/cockroachdb/errors"
 	irodsclient_fs "github.com/cyverse/go-irodsclient/fs"
 	"github.com/cyverse/irods-mcp-server/common"
 	irods_common "github.com/cyverse/irods-mcp-server/irods/common"
 	"github.com/cyverse/irods-mcp-server/irods/model"
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/google/jsonschema-go/jsonschema"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const (
 	SearchFilesByAVUName = irods_common.IRODSAPIPrefix + "search_files_by_avu"
 )
+
+type SearchFilesByAVUInputArgs struct {
+	Attribute string `json:"attribute"`
+	Value     string `json:"value"`
+}
 
 type SearchFilesByAVU struct {
 	mcpServer *IRODSMCPServer
@@ -38,24 +42,28 @@ func (t *SearchFilesByAVU) GetDescription() string {
 	The matching entries are returned in JSON format.`
 }
 
-func (t *SearchFilesByAVU) GetTool() mcp.Tool {
-	return mcp.NewTool(
-		t.GetName(),
-		mcp.WithDescription(t.GetDescription()),
-		mcp.WithString(
-			"attribute",
-			mcp.Required(),
-			mcp.Description("The attribute to search for."),
-		),
-		mcp.WithString(
-			"value",
-			mcp.Required(),
-			mcp.Description("The value of the attribute to search for."),
-		),
-	)
+func (t *SearchFilesByAVU) GetTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        t.GetName(),
+		Description: t.GetDescription(),
+		InputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"attribute": {
+					Type:        "string",
+					Description: "The attribute to search for.",
+				},
+				"value": {
+					Type:        "string",
+					Description: "The value of the attribute to search for.",
+				},
+			},
+			Required: []string{"attribute", "value"},
+		},
+	}
 }
 
-func (t *SearchFilesByAVU) GetHandler() server.ToolHandlerFunc {
+func (t *SearchFilesByAVU) GetHandler() mcp.ToolHandler {
 	return t.Handler
 }
 
@@ -81,53 +89,47 @@ func (t *SearchFilesByAVU) GetAccessiblePaths(authValue *common.AuthValue) []str
 	return paths
 }
 
-func (t *SearchFilesByAVU) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	arguments := request.GetArguments()
-
-	attribute, err := irods_common.GetInputStringArgument(arguments, "attribute", true)
+func (t *SearchFilesByAVU) Handler(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// arguments
+	args := SearchFilesByAVUInputArgs{}
+	err := irods_common.MarshalInputArguments(t.GetTool(), request, &args)
 	if err != nil {
-		outputErr := errors.New("failed to get attribute from arguments")
-		return irods_common.OutputMCPError(outputErr)
-	}
-
-	value, err := irods_common.GetInputStringArgument(arguments, "value", true)
-	if err != nil {
-		outputErr := errors.New("failed to get value from arguments")
-		return irods_common.OutputMCPError(outputErr)
+		outputErr := errors.Wrapf(err, "failed to marshal input arguments")
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to get auth value")
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// make a irods filesystem client
 	fs, err := t.mcpServer.GetIRODSFSClientFromAuthValue(&authValue)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to create a irods fs client")
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	accessiblePaths := t.GetAccessiblePaths(&authValue)
 
 	// search
-	content, err := t.search(fs, accessiblePaths, attribute, value)
+	content, err := t.search(fs, accessiblePaths, args.Attribute, args.Value)
 	if err != nil {
-		outputErr := errors.Wrapf(err, "failed to search files (data-objects) or directories (collections) matching attribute %q and value %q", attribute, value)
-		return irods_common.OutputMCPError(outputErr)
+		outputErr := errors.Wrapf(err, "failed to search files (data-objects) or directories (collections) matching attribute %q and value %q", args.Attribute, args.Value)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
-	return mcp.NewToolResultText(content), nil
+	return irods_common.ToolJSONResult(*content)
 }
 
-func (t *SearchFilesByAVU) search(fs *irodsclient_fs.FileSystem, accessiblePaths []string, attribute string, value string) (string, error) {
+func (t *SearchFilesByAVU) search(fs *irodsclient_fs.FileSystem, accessiblePaths []string, attribute string, value string) (*model.SearchFilesByAVUOutput, error) {
 	outputEntries := []model.EntryWithAccess{}
 
 	entries, err := fs.SearchByMeta(attribute, value)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to search by AVU %q=%q", attribute, value)
+		return nil, errors.Wrapf(err, "failed to search by AVU %q=%q", attribute, value)
 	}
 
 	for _, entry := range entries {
@@ -144,16 +146,11 @@ func (t *SearchFilesByAVU) search(fs *irodsclient_fs.FileSystem, accessiblePaths
 		}
 	}
 
-	searchFilesOutput := model.SearchFilesByAVUOutput{
+	searchFilesOutput := &model.SearchFilesByAVUOutput{
 		SearchAttribute: attribute,
 		SearchValue:     value,
 		MatchingEntries: outputEntries,
 	}
 
-	jsonBytes, err := json.Marshal(searchFilesOutput)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to marshal JSON")
-	}
-
-	return string(jsonBytes), nil
+	return searchFilesOutput, nil
 }

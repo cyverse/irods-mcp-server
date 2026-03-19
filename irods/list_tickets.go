@@ -2,15 +2,14 @@ package irods
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/cockroachdb/errors"
 	irodsclient_fs "github.com/cyverse/go-irodsclient/fs"
 	"github.com/cyverse/irods-mcp-server/common"
 	irods_common "github.com/cyverse/irods-mcp-server/irods/common"
 	"github.com/cyverse/irods-mcp-server/irods/model"
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/google/jsonschema-go/jsonschema"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const (
@@ -38,14 +37,18 @@ func (t *ListTickets) GetDescription() string {
 	Anonymous users are not allowed to list tickets.`
 }
 
-func (t *ListTickets) GetTool() mcp.Tool {
-	return mcp.NewTool(
-		t.GetName(),
-		mcp.WithDescription(t.GetDescription()),
-	)
+func (t *ListTickets) GetTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        t.GetName(),
+		Description: t.GetDescription(),
+		InputSchema: &jsonschema.Schema{
+			Type:       "object",
+			Properties: map[string]*jsonschema.Schema{},
+		},
+	}
 }
 
-func (t *ListTickets) GetHandler() server.ToolHandlerFunc {
+func (t *ListTickets) GetHandler() mcp.ToolHandler {
 	return t.Handler
 }
 
@@ -53,48 +56,48 @@ func (t *ListTickets) GetAccessiblePaths(authValue *common.AuthValue) []string {
 	return []string{}
 }
 
-func (t *ListTickets) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func (t *ListTickets) Handler(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to get auth value")
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	if authValue.IsAnonymous() {
 		outputErr := errors.New("anonymous user is not allowed to list tickets")
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// make a irods filesystem client
 	fs, err := t.mcpServer.GetIRODSFSClientFromAuthValue(&authValue)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to create a irods fs client")
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// list
 	content, err := t.listTickets(fs)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to list tickets")
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
-	return mcp.NewToolResultText(content), nil
+	return irods_common.ToolJSONResult(content)
 }
 
-func (t *ListTickets) listTickets(fs *irodsclient_fs.FileSystem) (string, error) {
+func (t *ListTickets) listTickets(fs *irodsclient_fs.FileSystem) ([]model.TicketWithRestrictions, error) {
 	outputTickets := []model.TicketWithRestrictions{}
 
 	tickets, err := fs.ListTickets()
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to list tickets")
+		return nil, errors.Wrapf(err, "failed to list tickets")
 	}
 
 	for _, ticket := range tickets {
 		restrictions, err := fs.GetTicketRestrictions(ticket.ID)
 		if err != nil {
-			return "", errors.Wrapf(err, "failed to get ticket restrictions for %q", ticket.Name)
+			return nil, errors.Wrapf(err, "failed to get ticket restrictions for %q", ticket.Name)
 		}
 
 		ticketEntry := model.TicketWithRestrictions{
@@ -105,10 +108,5 @@ func (t *ListTickets) listTickets(fs *irodsclient_fs.FileSystem) (string, error)
 		outputTickets = append(outputTickets, ticketEntry)
 	}
 
-	jsonBytes, err := json.Marshal(outputTickets)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to marshal JSON")
-	}
-
-	return string(jsonBytes), nil
+	return outputTickets, nil
 }

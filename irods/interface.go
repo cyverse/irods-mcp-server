@@ -2,15 +2,14 @@ package irods
 
 import (
 	"github.com/cyverse/irods-mcp-server/common"
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type ToolAPI interface {
 	GetName() string
 	GetDescription() string
-	GetTool() mcp.Tool
-	GetHandler() server.ToolHandlerFunc
+	GetTool() *mcp.Tool
+	GetHandler() mcp.ToolHandler
 	GetAccessiblePaths(authValue *common.AuthValue) []string
 }
 
@@ -19,6 +18,6 @@ type ResourceTemplateAPI interface {
 	GetURITemplate() string
 	GetName() string
 	GetDescription() string
-	GetResourceTemplate() mcp.ResourceTemplate
-	GetHandler() server.ResourceTemplateHandlerFunc
+	GetResourceTemplate() *mcp.ResourceTemplate
+	GetHandler() mcp.ResourceHandler
 }

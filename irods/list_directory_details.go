@@ -2,7 +2,6 @@ package irods
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/cockroachdb/errors"
 	irodsclient_fs "github.com/cyverse/go-irodsclient/fs"
@@ -10,13 +9,17 @@ import (
 	"github.com/cyverse/irods-mcp-server/common"
 	irods_common "github.com/cyverse/irods-mcp-server/irods/common"
 	"github.com/cyverse/irods-mcp-server/irods/model"
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/google/jsonschema-go/jsonschema"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const (
 	ListDirectoryDetailsName = irods_common.IRODSAPIPrefix + "list_directory_details"
 )
+
+type ListDirectoryDetailsInputArgs struct {
+	Path string `json:"path"`
+}
 
 type ListDirectoryDetails struct {
 	mcpServer *IRODSMCPServer
@@ -40,19 +43,24 @@ func (t *ListDirectoryDetails) GetDescription() string {
 	The output contains entries in the given directory (collection) path, and users or groups who can access the files (data-ojects). Files (data-objects) will also have replica information.`
 }
 
-func (t *ListDirectoryDetails) GetTool() mcp.Tool {
-	return mcp.NewTool(
-		t.GetName(),
-		mcp.WithDescription(t.GetDescription()),
-		mcp.WithString(
-			"path",
-			mcp.Required(),
-			mcp.Description("The path to the directory (collection) to list"),
-		),
-	)
+func (t *ListDirectoryDetails) GetTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        t.GetName(),
+		Description: t.GetDescription(),
+		InputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"path": {
+					Type:        "string",
+					Description: "The path to the directory (collection) to list.",
+				},
+			},
+			Required: []string{"path"},
+		},
+	}
 }
 
-func (t *ListDirectoryDetails) GetHandler() server.ToolHandlerFunc {
+func (t *ListDirectoryDetails) GetHandler() mcp.ToolHandler {
 	return t.Handler
 }
 
@@ -78,30 +86,30 @@ func (t *ListDirectoryDetails) GetAccessiblePaths(authValue *common.AuthValue) [
 	return paths
 }
 
-func (t *ListDirectoryDetails) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	arguments := request.GetArguments()
-
-	inputPath, err := irods_common.GetInputStringArgument(arguments, "path", true)
+func (t *ListDirectoryDetails) Handler(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// arguments
+	args := ListDirectoryDetailsInputArgs{}
+	err := irods_common.MarshalInputArguments(t.GetTool(), request, &args)
 	if err != nil {
-		outputErr := errors.Newf("failed to get path from arguments")
-		return irods_common.OutputMCPError(outputErr)
+		outputErr := errors.Wrapf(err, "failed to marshal input arguments")
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to get auth value")
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// make a irods filesystem client
 	fs, err := t.mcpServer.GetIRODSFSClientFromAuthValue(&authValue)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to create a irods fs client")
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
-	irodsPath := irods_common.MakeIRODSPath(t.config, fs.GetAccount(), inputPath)
+	irodsPath := irods_common.MakeIRODSPath(t.config, fs.GetAccount(), args.Path)
 
 	// check permission
 	if !irods_common.IsAccessAllowed(irodsPath, t.GetAccessiblePaths(&authValue)) {
@@ -116,39 +124,39 @@ func (t *ListDirectoryDetails) Handler(ctx context.Context, request mcp.CallTool
 	if err != nil {
 		if !irodsclient_types.IsFileNotFoundError(err) {
 			outputErr := errors.Wrapf(err, "failed to find a directory (collection) %q", irodsPath)
-			return irods_common.OutputMCPError(outputErr)
+			return irods_common.ToolErrorResult(outputErr), nil
 		}
 
 		outputErr := errors.Wrapf(err, "failed to stat %q", irodsPath)
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	if !sourceEntry.IsDir() {
 		outputErr := errors.Newf("path %q is not a directory (collection)", irodsPath)
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// collection
 	content, err := t.listCollection(fs, sourceEntry)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to list a directory (collection) %q", irodsPath)
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
-	return mcp.NewToolResultText(content), nil
+	return irods_common.ToolJSONResult(*content)
 }
 
-func (t *ListDirectoryDetails) listCollection(fs *irodsclient_fs.FileSystem, sourceEntry *irodsclient_fs.Entry) (string, error) {
+func (t *ListDirectoryDetails) listCollection(fs *irodsclient_fs.FileSystem, sourceEntry *irodsclient_fs.Entry) (*model.ListDirectoryOutput, error) {
 	outputEntries := []model.EntryWithAccess{}
 
 	dirEntries, err := fs.List(sourceEntry.Path)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to list directory (collection) %q", sourceEntry.Path)
+		return nil, errors.Wrapf(err, "failed to list directory (collection) %q", sourceEntry.Path)
 	}
 
 	accesses, err := fs.ListACLsForEntries(sourceEntry.Path)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to get access for entries in %q", sourceEntry.Path)
+		return nil, errors.Wrapf(err, "failed to get access for entries in %q", sourceEntry.Path)
 	}
 
 	for _, dirEntry := range dirEntries {
@@ -171,17 +179,12 @@ func (t *ListDirectoryDetails) listCollection(fs *irodsclient_fs.FileSystem, sou
 		outputEntries = append(outputEntries, entryWithAccessEnt)
 	}
 
-	listDirectoryOutput := model.ListDirectoryOutput{
+	listDirectoryOutput := &model.ListDirectoryOutput{
 		Directory:            sourceEntry,
 		DirectoryResourceURI: irods_common.MakeResourceURI(sourceEntry.Path),
 		DirectoryWebDAVURI:   irods_common.MakeWebdavURL(t.config, sourceEntry.Path, fs.GetAccount()),
 		DirectoryEntries:     outputEntries,
 	}
 
-	jsonBytes, err := json.Marshal(listDirectoryOutput)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to marshal JSON")
-	}
-
-	return string(jsonBytes), nil
+	return listDirectoryOutput, nil
 }

@@ -3,7 +3,7 @@ package model
 import (
 	"encoding/json"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type ToolRequestParams struct {

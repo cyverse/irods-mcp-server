@@ -2,20 +2,23 @@ package irods
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/cockroachdb/errors"
 	irodsclient_fs "github.com/cyverse/go-irodsclient/fs"
 	"github.com/cyverse/irods-mcp-server/common"
 	irods_common "github.com/cyverse/irods-mcp-server/irods/common"
 	"github.com/cyverse/irods-mcp-server/irods/model"
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/google/jsonschema-go/jsonschema"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const (
 	DeleteFileName = irods_common.IRODSAPIPrefix + "delete_file"
 )
+
+type DeleteFileInputArgs struct {
+	Path string `json:"path"`
+}
 
 type DeleteFile struct {
 	mcpServer *IRODSMCPServer
@@ -37,19 +40,24 @@ func (t *DeleteFile) GetDescription() string {
 	return `Delete a file (data-object) or directory (collection).`
 }
 
-func (t *DeleteFile) GetTool() mcp.Tool {
-	return mcp.NewTool(
-		t.GetName(),
-		mcp.WithDescription(t.GetDescription()),
-		mcp.WithString(
-			"path",
-			mcp.Required(),
-			mcp.Description("The path to the file (data-object) or directory (collection) to delete."),
-		),
-	)
+func (t *DeleteFile) GetTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        t.GetName(),
+		Description: t.GetDescription(),
+		InputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"path": {
+					Type:        "string",
+					Description: "The path to the file (data-object) or directory (collection) to delete.",
+				},
+			},
+			Required: []string{"path"},
+		},
+	}
 }
 
-func (t *DeleteFile) GetHandler() server.ToolHandlerFunc {
+func (t *DeleteFile) GetHandler() mcp.ToolHandler {
 	return t.Handler
 }
 
@@ -74,77 +82,72 @@ func (t *DeleteFile) GetAccessiblePaths(authValue *common.AuthValue) []string {
 	return paths
 }
 
-func (t *DeleteFile) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	arguments := request.GetArguments()
-
-	path, err := irods_common.GetInputStringArgument(arguments, "path", true)
+func (t *DeleteFile) Handler(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// arguments
+	args := DeleteFileInputArgs{}
+	err := irods_common.MarshalInputArguments(t.GetTool(), request, &args)
 	if err != nil {
-		outputErr := errors.Wrapf(err, "failed to get path from arguments")
-		return irods_common.OutputMCPError(outputErr)
+		outputErr := errors.Wrapf(err, "failed to marshal input arguments")
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to get auth value")
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// make a irods filesystem client
 	fs, err := t.mcpServer.GetIRODSFSClientFromAuthValue(&authValue)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to create a irods fs client")
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
-	irodsPath := irods_common.MakeIRODSPath(t.config, fs.GetAccount(), path)
+	irodsPath := irods_common.MakeIRODSPath(t.config, fs.GetAccount(), args.Path)
 
 	// check permission
 	if !irods_common.IsAccessAllowed(irodsPath, t.GetAccessiblePaths(&authValue)) {
 		outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), irodsPath)
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// Delete file
 	targetEntry, err := fs.Stat(irodsPath)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to stat file or directory info for %q", irodsPath)
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	content, err := t.deleteFile(fs, targetEntry)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to delete file (data-object) or directory (collection) %q", irodsPath)
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
-	return mcp.NewToolResultText(content), nil
+	return irods_common.ToolJSONResult(*content)
 }
 
-func (t *DeleteFile) deleteFile(fs *irodsclient_fs.FileSystem, targetEntry *irodsclient_fs.Entry) (string, error) {
+func (t *DeleteFile) deleteFile(fs *irodsclient_fs.FileSystem, targetEntry *irodsclient_fs.Entry) (*model.RemoveFileOutput, error) {
 	if targetEntry.IsDir() {
 		// dir
 		err := fs.RemoveDir(targetEntry.Path, true, true)
 		if err != nil {
-			return "", errors.Wrapf(err, "failed to delete directory (collection) %q", targetEntry.Path)
+			return nil, errors.Wrapf(err, "failed to delete directory (collection) %q", targetEntry.Path)
 		}
 	} else {
 		// file
 		err := fs.RemoveFile(targetEntry.Path, true)
 		if err != nil {
-			return "", errors.Wrapf(err, "failed to delete file (data-object) %q", targetEntry.Path)
+			return nil, errors.Wrapf(err, "failed to delete file (data-object) %q", targetEntry.Path)
 		}
 	}
 
-	fileRemoveOutput := model.RemoveFileOutput{
+	fileRemoveOutput := &model.RemoveFileOutput{
 		Path:      targetEntry.Path,
 		EntryInfo: targetEntry,
 	}
 
-	jsonBytes, err := json.Marshal(fileRemoveOutput)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to marshal JSON")
-	}
-
-	return string(jsonBytes), nil
+	return fileRemoveOutput, nil
 }

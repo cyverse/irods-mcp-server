@@ -2,7 +2,6 @@ package irods
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 
 	"github.com/cockroachdb/errors"
@@ -10,13 +9,18 @@ import (
 	"github.com/cyverse/irods-mcp-server/common"
 	irods_common "github.com/cyverse/irods-mcp-server/irods/common"
 	"github.com/cyverse/irods-mcp-server/irods/model"
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/google/jsonschema-go/jsonschema"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const (
 	ListAVUsName = irods_common.IRODSAPIPrefix + "list_avus"
 )
+
+type ListAVUsInputArgs struct {
+	TargetType string `json:"target_type"`
+	Target     string `json:"target"`
+}
 
 type ListAVUs struct {
 	mcpServer *IRODSMCPServer
@@ -38,25 +42,29 @@ func (t *ListAVUs) GetDescription() string {
 	return `List AVUs (attribute-value-unit) from a file (data-object), directory (collection), resource, or user.`
 }
 
-func (t *ListAVUs) GetTool() mcp.Tool {
-	return mcp.NewTool(
-		t.GetName(),
-		mcp.WithDescription(t.GetDescription()),
-		mcp.WithString(
-			"target_type",
-			mcp.Enum("path", "resource", "user"),
-			mcp.Required(),
-			mcp.Description("The type of the target to delete AVU. It can be 'path', 'resource', or 'user'."),
-		),
-		mcp.WithString(
-			"target",
-			mcp.Required(),
-			mcp.Description("The target to delete AVU. Path for 'path' target_type, resource name for 'resource' target_type, and user name for 'user' target_type."),
-		),
-	)
+func (t *ListAVUs) GetTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        t.GetName(),
+		Description: t.GetDescription(),
+		InputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"target_type": {
+					Type:        "string",
+					Enum:        []interface{}{"path", "resource", "user"},
+					Description: "The type of the target to list AVU. It can be 'path', 'resource', or 'user'.",
+				},
+				"target": {
+					Type:        "string",
+					Description: "The target to list AVU. Path for 'path' target_type, resource name for 'resource' target_type, and user name for 'user' target_type.",
+				},
+			},
+			Required: []string{"target_type", "target"},
+		},
+	}
 }
 
-func (t *ListAVUs) GetHandler() server.ToolHandlerFunc {
+func (t *ListAVUs) GetHandler() mcp.ToolHandler {
 	return t.Handler
 }
 
@@ -81,56 +89,50 @@ func (t *ListAVUs) GetAccessiblePaths(authValue *common.AuthValue) []string {
 	return paths
 }
 
-func (t *ListAVUs) Handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	arguments := request.GetArguments()
-
-	targetType, err := irods_common.GetInputStringArgument(arguments, "target_type", true)
+func (t *ListAVUs) Handler(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// arguments
+	args := ListAVUsInputArgs{}
+	err := irods_common.MarshalInputArguments(t.GetTool(), request, &args)
 	if err != nil {
-		outputErr := errors.New("failed to get target_type from arguments")
-		return irods_common.OutputMCPError(outputErr)
-	}
-
-	target, err := irods_common.GetInputStringArgument(arguments, "target", true)
-	if err != nil {
-		outputErr := errors.New("failed to get target from arguments")
-		return irods_common.OutputMCPError(outputErr)
+		outputErr := errors.Wrapf(err, "failed to marshal input arguments")
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// auth
 	authValue, err := common.GetAuthValue(ctx)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to get auth value")
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// make a irods filesystem client
 	fs, err := t.mcpServer.GetIRODSFSClientFromAuthValue(&authValue)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to create a irods fs client")
-		return irods_common.OutputMCPError(outputErr)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
-	if targetType == "path" {
-		target = irods_common.MakeIRODSPath(t.config, fs.GetAccount(), target)
+	if args.TargetType == "path" {
+		args.Target = irods_common.MakeIRODSPath(t.config, fs.GetAccount(), args.Target)
 
 		// check permission
-		if !irods_common.IsAccessAllowed(target, t.GetAccessiblePaths(&authValue)) {
-			outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), target)
-			return irods_common.OutputMCPError(outputErr)
+		if !irods_common.IsAccessAllowed(args.Target, t.GetAccessiblePaths(&authValue)) {
+			outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), args.Target)
+			return irods_common.ToolErrorResult(outputErr), nil
 		}
 	}
 
 	// List AVUs
-	content, err := t.listAVUs(fs, targetType, target)
+	content, err := t.listAVUs(fs, args.TargetType, args.Target)
 	if err != nil {
-		outputErr := errors.Wrapf(err, "failed to list AVUs from %q in %q type", target, targetType)
-		return irods_common.OutputMCPError(outputErr)
+		outputErr := errors.Wrapf(err, "failed to list AVUs from %q in %q type", args.Target, args.TargetType)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
-	return mcp.NewToolResultText(content), nil
+	return irods_common.ToolJSONResult(*content)
 }
 
-func (t *ListAVUs) listAVUs(fs *irodsclient_fs.FileSystem, targetType string, target string) (string, error) {
+func (t *ListAVUs) listAVUs(fs *irodsclient_fs.FileSystem, targetType string, target string) (*model.ListAVUsOutput, error) {
 	switch targetType {
 	case "path":
 		return t.listAVUsFromPath(fs, target)
@@ -139,18 +141,18 @@ func (t *ListAVUs) listAVUs(fs *irodsclient_fs.FileSystem, targetType string, ta
 	case "user":
 		return t.listAVUsFromUser(fs, target)
 	default:
-		return "", errors.Newf("invalid target_type %q", targetType)
+		return nil, errors.Newf("invalid target_type %q", targetType)
 	}
 }
 
-func (t *ListAVUs) listAVUsFromPath(fs *irodsclient_fs.FileSystem, path string) (string, error) {
+func (t *ListAVUs) listAVUsFromPath(fs *irodsclient_fs.FileSystem, path string) (*model.ListAVUsOutput, error) {
 	if !fs.Exists(path) {
-		return "", errors.Newf("path %q does not exist", path)
+		return nil, errors.Newf("path %q does not exist", path)
 	}
 
 	metadata, err := fs.ListMetadata(path)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to list AVUs from path %q", path)
+		return nil, errors.Wrapf(err, "failed to list AVUs from path %q", path)
 	}
 
 	avus := []model.AVU{}
@@ -164,24 +166,19 @@ func (t *ListAVUs) listAVUsFromPath(fs *irodsclient_fs.FileSystem, path string) 
 		avus = append(avus, avu)
 	}
 
-	listAVUsOutput := model.ListAVUsOutput{
+	listAVUsOutput := &model.ListAVUsOutput{
 		TargetType: "path",
 		Target:     path,
 		AVUs:       avus,
 	}
 
-	jsonBytes, err := json.Marshal(listAVUsOutput)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to marshal JSON")
-	}
-
-	return string(jsonBytes), nil
+	return listAVUsOutput, nil
 }
 
-func (t *ListAVUs) listAVUsFromResource(fs *irodsclient_fs.FileSystem, resourceName string) (string, error) {
+func (t *ListAVUs) listAVUsFromResource(fs *irodsclient_fs.FileSystem, resourceName string) (*model.ListAVUsOutput, error) {
 	metadata, err := fs.ListResourceMetadata(resourceName)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to list AVU from resource %q", resourceName)
+		return nil, errors.Wrapf(err, "failed to list AVU from resource %q", resourceName)
 	}
 
 	avus := []model.AVU{}
@@ -195,21 +192,16 @@ func (t *ListAVUs) listAVUsFromResource(fs *irodsclient_fs.FileSystem, resourceN
 		avus = append(avus, avu)
 	}
 
-	listAVUsOutput := model.ListAVUsOutput{
+	listAVUsOutput := &model.ListAVUsOutput{
 		TargetType: "resource",
 		Target:     resourceName,
 		AVUs:       avus,
 	}
 
-	jsonBytes, err := json.Marshal(listAVUsOutput)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to marshal JSON")
-	}
-
-	return string(jsonBytes), nil
+	return listAVUsOutput, nil
 }
 
-func (t *ListAVUs) listAVUsFromUser(fs *irodsclient_fs.FileSystem, userName string) (string, error) {
+func (t *ListAVUs) listAVUsFromUser(fs *irodsclient_fs.FileSystem, userName string) (*model.ListAVUsOutput, error) {
 	account := fs.GetAccount()
 
 	user := ""
@@ -225,7 +217,7 @@ func (t *ListAVUs) listAVUsFromUser(fs *irodsclient_fs.FileSystem, userName stri
 
 	metadata, err := fs.ListUserMetadata(user, zone)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to list AVU from user %q", userName)
+		return nil, errors.Wrapf(err, "failed to list AVU from user %q", userName)
 	}
 
 	avus := []model.AVU{}
@@ -239,16 +231,11 @@ func (t *ListAVUs) listAVUsFromUser(fs *irodsclient_fs.FileSystem, userName stri
 		avus = append(avus, avu)
 	}
 
-	listAVUsOutput := model.ListAVUsOutput{
+	listAVUsOutput := &model.ListAVUsOutput{
 		TargetType: "user",
 		Target:     userName,
 		AVUs:       avus,
 	}
 
-	jsonBytes, err := json.Marshal(listAVUsOutput)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to marshal JSON")
-	}
-
-	return string(jsonBytes), nil
+	return listAVUsOutput, nil
 }
