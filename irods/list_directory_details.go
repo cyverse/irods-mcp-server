@@ -2,6 +2,7 @@ package irods
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/cockroachdb/errors"
 	irodsclient_fs "github.com/cyverse/go-irodsclient/fs"
@@ -18,7 +19,9 @@ const (
 )
 
 type ListDirectoryDetailsInputArgs struct {
-	Path string `json:"path"`
+	Path   string `json:"path"`
+	Offset int    `json:"offset"`
+	Limit  int    `json:"limit"`
 }
 
 type ListDirectoryDetails struct {
@@ -40,7 +43,7 @@ func (t *ListDirectoryDetails) GetName() string {
 func (t *ListDirectoryDetails) GetDescription() string {
 	return `Get a list of files (data-objects) and directories (collections) in a specified path with full detailed info.
 	The specified path must be an iRODS path. The output is in JSON format.
-	The output contains entries in the given directory (collection) path, and users or groups who can access the files (data-ojects). Files (data-objects) will also have replica information.`
+	The output contains entries in the given directory (collection) path, and users or groups who can access the files (data-ojects). Files (data-objects) will also have replica information. Use offset and limit parameters to paginate through large directories.`
 }
 
 func (t *ListDirectoryDetails) GetTool() *mcp.Tool {
@@ -53,6 +56,16 @@ func (t *ListDirectoryDetails) GetTool() *mcp.Tool {
 				"path": {
 					Type:        "string",
 					Description: "The path to the directory (collection) to list.",
+				},
+				"offset": {
+					Type:        "number",
+					Description: "Number of entries to skip (for pagination). Default: 0.",
+					Default:     json.RawMessage("0"),
+				},
+				"limit": {
+					Type:        "number",
+					Description: "Maximum number of entries to return (for pagination). Default: 100, max: 500.",
+					Default:     json.RawMessage("100"),
 				},
 			},
 			Required: []string{"path"},
@@ -136,8 +149,20 @@ func (t *ListDirectoryDetails) Handler(ctx context.Context, request *mcp.CallToo
 		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
+	// apply pagination defaults/bounds
+	offset := args.Offset
+	if offset < 0 {
+		offset = 0
+	}
+	limit := args.Limit
+	if limit <= 0 {
+		limit = 100
+	} else if limit > 500 {
+		limit = 500
+	}
+
 	// collection
-	content, err := t.listCollection(fs, sourceEntry)
+	content, err := t.listCollection(fs, sourceEntry, offset, limit)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to list a directory (collection) %q", irodsPath)
 		return irods_common.ToolErrorResult(outputErr), nil
@@ -146,7 +171,7 @@ func (t *ListDirectoryDetails) Handler(ctx context.Context, request *mcp.CallToo
 	return irods_common.ToolJSONResult(*content)
 }
 
-func (t *ListDirectoryDetails) listCollection(fs *irodsclient_fs.FileSystem, sourceEntry *irodsclient_fs.Entry) (*model.ListDirectoryOutput, error) {
+func (t *ListDirectoryDetails) listCollection(fs *irodsclient_fs.FileSystem, sourceEntry *irodsclient_fs.Entry, offset, limit int) (*model.ListDirectoryOutput, error) {
 	outputEntries := []model.EntryWithAccess{}
 
 	dirEntries, err := fs.List(sourceEntry.Path)
@@ -179,11 +204,24 @@ func (t *ListDirectoryDetails) listCollection(fs *irodsclient_fs.FileSystem, sou
 		outputEntries = append(outputEntries, entryWithAccessEnt)
 	}
 
+	total := len(outputEntries)
+	if offset > total {
+		offset = total
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	outputEntries = outputEntries[offset:end]
+
 	listDirectoryOutput := &model.ListDirectoryOutput{
 		Directory:            sourceEntry,
 		DirectoryResourceURI: irods_common.MakeResourceURI(sourceEntry.Path),
 		DirectoryWebDAVURI:   irods_common.MakeWebdavURL(t.config, sourceEntry.Path, fs.GetAccount()),
 		DirectoryEntries:     outputEntries,
+		Total:                total,
+		Offset:               offset,
+		Limit:                limit,
 	}
 
 	return listDirectoryOutput, nil

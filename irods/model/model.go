@@ -18,6 +18,9 @@ type ListDirectoryOutput struct {
 	DirectoryResourceURI string                `json:"directory_resource_uri"`
 	DirectoryWebDAVURI   string                `json:"directory_webdav_uri"`
 	DirectoryEntries     []EntryWithAccess     `json:"directory_entries"`
+	Total                int                   `json:"total"`
+	Offset               int                   `json:"offset"`
+	Limit                int                   `json:"limit"`
 }
 
 type SearchFilesOutput struct {
