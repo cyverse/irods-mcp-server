@@ -31,3 +31,5 @@ go.work.sum
 /bin
 /release
 irods-mcp-server.log
+irods-mcp-server-bin
+*.log
