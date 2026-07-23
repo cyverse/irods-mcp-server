@@ -3,6 +3,7 @@ package common
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -43,9 +44,11 @@ func NewAuthValueForHTTP(header http.Header) AuthValue {
 		authVal.Username = username
 		authVal.Password = password
 	} else if authVal.IsBearerAuth() {
-		// from oauth2
-		username = header.Get("X-Forwarded-User")
-		header.Del("X-Forwarded-User")
+		username = authVal.parseUsernameFromJWT()
+		if len(username) == 0 {
+			username = header.Get("X-Forwarded-User")
+			header.Del("X-Forwarded-User")
+		}
 		authVal.Username = username
 	}
 
@@ -107,8 +110,6 @@ func (a *AuthValue) getAuthToken() string {
 }
 
 func (a *AuthValue) parseBasicAuth() (string, string) {
-	username := ""
-	password := ""
 	if a.IsBasicAuth() {
 		authToken := a.getAuthToken()
 		if !strings.Contains(authToken, ":") {
@@ -119,6 +120,8 @@ func (a *AuthValue) parseBasicAuth() (string, string) {
 			}
 		}
 
+		username := ""
+		password := ""
 		authArr := strings.Split(authToken, ":")
 		if len(authArr) > 0 {
 			username = authArr[0]
@@ -127,9 +130,38 @@ func (a *AuthValue) parseBasicAuth() (string, string) {
 		if len(authArr) > 1 {
 			password = authArr[1]
 		}
+
+		return username, password
 	}
 
-	return username, password
+	return "", ""
+}
+
+func (a *AuthValue) parseUsernameFromJWT() string {
+	if a.IsBearerAuth() {
+		authToken := a.getAuthToken()
+		parts := strings.Split(authToken, ".")
+		if len(parts) != 3 {
+			return ""
+		}
+
+		// base64url decoding
+		payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+		if err != nil {
+			return ""
+		}
+
+		// extract preferred_username
+		var claims map[string]interface{}
+		if err := json.Unmarshal(payload, &claims); err != nil {
+			return ""
+		}
+		if username, ok := claims["preferred_username"].(string); ok {
+			return username
+		}
+	}
+
+	return ""
 }
 
 func GetAuthValue(ctx context.Context) (AuthValue, error) {
