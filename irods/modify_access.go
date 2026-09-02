@@ -138,6 +138,24 @@ func (t *ModifyAccess) Handler(ctx context.Context, request *mcp.CallToolRequest
 		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
+	// Fine-grained ACL levels require iRODS >= 4.3.0
+	fineGrainedLevels := map[string]bool{
+		"delete_object": true, "modify_object": true, "create_object": true,
+		"delete_metadata": true, "modify_metadata": true, "create_metadata": true,
+		"read_object": true, "read_metadata": true,
+	}
+	if fineGrainedLevels[args.AccessLevel] {
+		serverVersion, err := fs.GetServerVersion()
+		if err != nil {
+			outputErr := errors.Wrapf(err, "failed to get server version")
+			return irods_common.ToolErrorResult(outputErr), nil
+		}
+		if !serverVersion.HasHigherVersionThan(4, 3, 0) {
+			outputErr := errors.Newf("access level %q requires iRODS 4.3.0 or higher (server is %s)", args.AccessLevel, serverVersion.ReleaseVersion)
+			return irods_common.ToolErrorResult(outputErr), nil
+		}
+	}
+
 	// Modify Access
 	content, err := t.modifyAccess(fs, args.UserOrGroup, irodsPath, args.AccessLevel, args.Recurse)
 	if err != nil {
@@ -154,7 +172,7 @@ func (t *ModifyAccess) modifyAccess(fs *irodsclient_fs.FileSystem, userOrGroup s
 	user := ""
 	zone := account.ClientZone
 
-	parts := strings.Split(userOrGroup, "#")
+	parts := strings.SplitN(userOrGroup, "#", 2)
 	if len(parts) == 2 {
 		user = parts[0]
 		zone = parts[1]
