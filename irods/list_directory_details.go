@@ -43,7 +43,7 @@ func (t *ListDirectoryDetails) GetName() string {
 func (t *ListDirectoryDetails) GetDescription() string {
 	return `Get a list of files (data-objects) and directories (collections) in a specified path with full detailed info.
 	The specified path must be an iRODS path. The output is in JSON format.
-	The output contains entries in the given directory (collection) path, and users or groups who can access the files (data-ojects). Files (data-objects) will also have replica information. Use offset and limit parameters to paginate through large directories.`
+	The output contains entries in the given directory (collection) path, and users or groups who can access the files (data-objects). Files (data-objects) will also have replica information. Use offset and limit parameters to paginate through large directories.`
 }
 
 func (t *ListDirectoryDetails) GetTool() *mcp.Tool {
