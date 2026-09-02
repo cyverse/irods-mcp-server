@@ -5,23 +5,27 @@ import (
 	"strings"
 )
 
+// IsAccessAllowed reports whether irodsPath is covered by any entry in allowedPaths.
+//
+// Each entry in allowedPaths is interpreted as either:
+//   - a "/*"-suffixed pattern  → prefix match: irodsPath must be a direct or
+//     nested child of the base directory (e.g. "/zone/home/user/*" covers
+//     "/zone/home/user/foo" and deeper paths).
+//   - a bare path              → exact match after path.Clean.
+//
+// No glob semantics are applied; special characters in iRODS paths (e.g. "[",
+// "]") are treated literally.
 func IsAccessAllowed(irodsPath string, allowedPaths []string) bool {
 	irodsPath = path.Clean(irodsPath)
 
 	for _, allowedPath := range allowedPaths {
-		//fmt.Printf("Checking access: irodsPath=%q, allowedPath=%q\n", irodsPath, allowedPath)
-
 		if strings.HasSuffix(allowedPath, "/*") {
 			baseDir := strings.TrimSuffix(allowedPath, "/*")
-
 			if strings.HasPrefix(irodsPath, baseDir+"/") {
-				//fmt.Printf("Access allowed (directory wildcard): irodsPath=%q, allowedPath=%q\n", irodsPath, allowedPath)
 				return true
 			}
 		} else {
-			matched, _ := path.Match(allowedPath, irodsPath)
-			if matched {
-				//fmt.Printf("Access allowed: irodsPath=%q, allowedPath=%q\n", irodsPath, allowedPath)
+			if path.Clean(allowedPath) == irodsPath {
 				return true
 			}
 		}

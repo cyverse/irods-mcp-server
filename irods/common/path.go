@@ -84,10 +84,6 @@ func MakeTargetLocalFilePath(source string, target string) string {
 	return target
 }
 
-func GetFileExtension(p string) string {
-	return filepath.Ext(p)
-}
-
 func GetIRODSPathDirname(path string) string {
 	p := strings.TrimRight(path, "/")
 	idx := strings.LastIndex(p, "/")
