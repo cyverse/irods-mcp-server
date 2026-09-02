@@ -60,7 +60,7 @@ func (t *WriteFile) GetTool() *mcp.Tool {
 					Description: "The path to the file (data-object) to write to.",
 				},
 				"offset": {
-					Type:        "string",
+					Type:        "number",
 					Description: "The offset to start writing the file from. Default is 0.",
 					Default:     json.RawMessage("0"),
 				},
