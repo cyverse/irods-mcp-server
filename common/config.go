@@ -139,7 +139,7 @@ func NewConfigFromJSONFile(existingConfig *Config, jsonPath string) (*Config, er
 
 	jsonBytes, err := os.ReadFile(jsonPath)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to read YAML file %q", jsonPath)
+		return nil, errors.Wrapf(err, "failed to read JSON file %q", jsonPath)
 	}
 
 	err = json.Unmarshal(jsonBytes, cfg)
