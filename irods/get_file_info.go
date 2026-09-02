@@ -22,22 +22,14 @@ type GetFileInfoInputArgs struct {
 }
 
 type GetFileInfo struct {
-	mcpServer          *IRODSMCPServer
-	config             *common.Config
-	systemAttributeMap map[string]string
+	mcpServer *IRODSMCPServer
+	config    *common.Config
 }
 
 func NewGetFileInfo(svr *IRODSMCPServer) ToolAPI {
-	systemAttributes := irods_common.GetSystemAttributes()
-	systemAttributeMap := map[string]string{}
-	for _, systemAttribute := range systemAttributes {
-		systemAttributeMap[systemAttribute] = systemAttribute
-	}
-
 	return &GetFileInfo{
-		mcpServer:          svr,
-		config:             svr.GetConfig(),
-		systemAttributeMap: systemAttributeMap,
+		mcpServer: svr,
+		config:    svr.GetConfig(),
 	}
 }
 
@@ -159,7 +151,7 @@ func (t *GetFileInfo) getFileInfo(fs *irodsclient_fs.FileSystem, sourceEntry *ir
 
 	filteredAVUs := []*irodsclient_types.IRODSMeta{}
 	for _, avu := range avus {
-		if t.shouldHideMetadata(fs, avu.Name) {
+		if !t.shouldHideMetadata(fs, avu.Name) {
 			filteredAVUs = append(filteredAVUs, avu)
 		}
 	}
