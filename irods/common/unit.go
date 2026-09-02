@@ -23,66 +23,63 @@ func ParseSize(size string) (int64, error) {
 	size = strings.ToUpper(size)
 	size = strings.TrimSuffix(size, "B")
 
-	sizeNum := int64(0)
-	var err error
-
-	switch size[len(size)-1] {
-	case 'K', 'M', 'G', 'T':
-		sizeNum, err = strconv.ParseInt(size[:len(size)-1], 10, 64)
-		if err != nil {
-			return 0, errors.Wrapf(err, "failed to convert string %q to int", size)
-		}
-	default:
-		sizeNum, err = strconv.ParseInt(size, 10, 64)
-		if err != nil {
-			return 0, errors.Wrapf(err, "failed to convert string %q to int", size)
-		}
-		return sizeNum, nil
+	if len(size) == 0 {
+		return 0, nil
 	}
+
+	multiplier := int64(1)
+	numStr := size
 
 	switch size[len(size)-1] {
 	case 'K':
-		return sizeNum * KiloBytes, nil
+		multiplier = KiloBytes
+		numStr = size[:len(size)-1]
 	case 'M':
-		return sizeNum * MegaBytes, nil
+		multiplier = MegaBytes
+		numStr = size[:len(size)-1]
 	case 'G':
-		return sizeNum * GigaBytes, nil
+		multiplier = GigaBytes
+		numStr = size[:len(size)-1]
 	case 'T':
-		return sizeNum * TeraBytes, nil
-	default:
-		return sizeNum, nil
+		multiplier = TeraBytes
+		numStr = size[:len(size)-1]
 	}
+
+	n, err := strconv.ParseInt(numStr, 10, 64)
+	if err != nil {
+		return 0, errors.Wrapf(err, "failed to convert string %q to int", size)
+	}
+	return n * multiplier, nil
 }
 
 func ParseTime(t string) (int, error) {
 	t = strings.TrimSpace(t)
 	t = strings.ToUpper(t)
 
-	tNum := int64(0)
-	var err error
-
-	switch t[len(t)-1] {
-	case 'S', 'M', 'H', 'D':
-		tNum, err = strconv.ParseInt(t[:len(t)-1], 10, 64)
-		if err != nil {
-			return 0, errors.Wrapf(err, "failed to convert string %q to int", t)
-		}
-	default:
-		tNum, err = strconv.ParseInt(t, 10, 64)
-		if err != nil {
-			return 0, errors.Wrapf(err, "failed to convert string %q to int", t)
-		}
-		return int(tNum), nil
+	if len(t) == 0 {
+		return 0, nil
 	}
 
+	multiplier := int64(1)
+	numStr := t
+
 	switch t[len(t)-1] {
+	case 'S':
+		numStr = t[:len(t)-1]
 	case 'M':
-		return int(tNum) * Minute, nil
+		multiplier = int64(Minute)
+		numStr = t[:len(t)-1]
 	case 'H':
-		return int(tNum) * Hour, nil
+		multiplier = int64(Hour)
+		numStr = t[:len(t)-1]
 	case 'D':
-		return int(tNum) * Day, nil
-	default:
-		return int(tNum), nil
+		multiplier = int64(Day)
+		numStr = t[:len(t)-1]
 	}
+
+	n, err := strconv.ParseInt(numStr, 10, 64)
+	if err != nil {
+		return 0, errors.Wrapf(err, "failed to convert string %q to int", t)
+	}
+	return int(n * multiplier), nil
 }
