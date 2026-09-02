@@ -18,7 +18,8 @@ const (
 )
 
 type SearchFilesInputArgs struct {
-	Path string `json:"path"`
+	Path  string `json:"path"`
+	Limit int    `json:"limit,omitempty"`
 }
 
 type SearchFiles struct {
@@ -52,7 +53,11 @@ func (t *SearchFiles) GetTool() *mcp.Tool {
 			Properties: map[string]*jsonschema.Schema{
 				"path": {
 					Type:        "string",
-					Description: "The search path, which may include wildcard patterns such as '?' and '*'.",
+					Description: "The search path, which may include wildcard patterns such as '?' and '*'. Exact paths without wildcards are also supported.",
+				},
+				"limit": {
+					Type:        "number",
+					Description: "Maximum number of entries to return. Default: 100, max: 500.",
 				},
 			},
 			Required: []string{"path"},
@@ -74,6 +79,7 @@ func (t *SearchFiles) GetAccessiblePaths(authValue *common.AuthValue) []string {
 	sharedPath := irods_common.GetSharedPath(t.config, account)
 
 	paths := []string{
+		sharedPath,
 		sharedPath + "/*",
 	}
 
@@ -110,25 +116,28 @@ func (t *SearchFiles) Handler(ctx context.Context, request *mcp.CallToolRequest)
 
 	irodsPath := irods_common.MakeIRODSPath(t.config, fs.GetAccount(), args.Path)
 
-	// check permission
-	// check first wildcard location
+	// check permission using root path (portion before first wildcard, or full path for exact search)
 	wildIdx := strings.IndexAny(irodsPath, "?*")
+	var irodsRootPath string
 	if wildIdx >= 0 {
-		irodsRootPath := irodsPath[:wildIdx]
-		irodsRootPath = irods_common.GetDir(irodsRootPath)
-
-		if !irods_common.IsAccessAllowed(irodsRootPath, t.GetAccessiblePaths(&authValue)) {
-			outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), irodsRootPath)
-			return irods_common.ToolErrorResult(outputErr), nil
-		}
+		irodsRootPath = irods_common.GetDir(irodsPath[:wildIdx])
 	} else {
-		// no wildcard return error
-		outputErr := errors.Newf("no wildcard is in the path %q", irodsPath)
+		irodsRootPath = irods_common.GetDir(irodsPath)
+	}
+	if !irods_common.IsAccessAllowed(irodsRootPath, t.GetAccessiblePaths(&authValue)) {
+		outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), irodsRootPath)
 		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
+	limit := args.Limit
+	if limit <= 0 {
+		limit = 100
+	} else if limit > 500 {
+		limit = 500
+	}
+
 	// search
-	content, err := t.search(fs, irodsPath)
+	content, err := t.search(fs, irodsPath, limit)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to search files (data-objects) or directories (collections) matching %q", irodsPath)
 		return irods_common.ToolErrorResult(outputErr), nil
@@ -137,7 +146,7 @@ func (t *SearchFiles) Handler(ctx context.Context, request *mcp.CallToolRequest)
 	return irods_common.ToolJSONResult(*content)
 }
 
-func (t *SearchFiles) search(fs *irodsclient_fs.FileSystem, searchPath string) (*model.SearchFilesOutput, error) {
+func (t *SearchFiles) search(fs *irodsclient_fs.FileSystem, searchPath string, limit int) (*model.SearchFilesOutput, error) {
 	outputEntries := []model.EntryWithAccess{}
 
 	dirEntries, err := fs.SearchDirUnixWildcard(searchPath)
@@ -151,23 +160,25 @@ func (t *SearchFiles) search(fs *irodsclient_fs.FileSystem, searchPath string) (
 	}
 
 	for _, dirEntry := range dirEntries {
-		entryStruct := model.EntryWithAccess{
+		if len(outputEntries) >= limit {
+			break
+		}
+		outputEntries = append(outputEntries, model.EntryWithAccess{
 			Entry:       dirEntry,
 			ResourceURI: irods_common.MakeResourceURI(dirEntry.Path),
 			WebDAVURI:   irods_common.MakeWebdavURL(t.config, dirEntry.Path, fs.GetAccount()),
-		}
-
-		outputEntries = append(outputEntries, entryStruct)
+		})
 	}
 
 	for _, fileEntry := range fileEntries {
-		entryStruct := model.EntryWithAccess{
+		if len(outputEntries) >= limit {
+			break
+		}
+		outputEntries = append(outputEntries, model.EntryWithAccess{
 			Entry:       fileEntry,
 			ResourceURI: irods_common.MakeResourceURI(fileEntry.Path),
 			WebDAVURI:   irods_common.MakeWebdavURL(t.config, fileEntry.Path, fs.GetAccount()),
-		}
-
-		outputEntries = append(outputEntries, entryStruct)
+		})
 	}
 
 	searchFilesOutput := &model.SearchFilesOutput{

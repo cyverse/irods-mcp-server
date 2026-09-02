@@ -19,6 +19,7 @@ const (
 type SearchFilesByAVUInputArgs struct {
 	Attribute string `json:"attribute"`
 	Value     string `json:"value"`
+	Limit     int    `json:"limit,omitempty"`
 }
 
 type SearchFilesByAVU struct {
@@ -56,6 +57,10 @@ func (t *SearchFilesByAVU) GetTool() *mcp.Tool {
 				"value": {
 					Type:        "string",
 					Description: "The value of the attribute to search for.",
+				},
+				"limit": {
+					Type:        "number",
+					Description: "Maximum number of entries to return. Default: 100, max: 500.",
 				},
 			},
 			Required: []string{"attribute", "value"},
@@ -114,8 +119,15 @@ func (t *SearchFilesByAVU) Handler(ctx context.Context, request *mcp.CallToolReq
 
 	accessiblePaths := t.GetAccessiblePaths(&authValue)
 
+	limit := args.Limit
+	if limit <= 0 {
+		limit = 100
+	} else if limit > 500 {
+		limit = 500
+	}
+
 	// search
-	content, err := t.search(fs, accessiblePaths, args.Attribute, args.Value)
+	content, err := t.search(fs, accessiblePaths, args.Attribute, args.Value, limit)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to search files (data-objects) or directories (collections) matching attribute %q and value %q", args.Attribute, args.Value)
 		return irods_common.ToolErrorResult(outputErr), nil
@@ -124,7 +136,7 @@ func (t *SearchFilesByAVU) Handler(ctx context.Context, request *mcp.CallToolReq
 	return irods_common.ToolJSONResult(*content)
 }
 
-func (t *SearchFilesByAVU) search(fs *irodsclient_fs.FileSystem, accessiblePaths []string, attribute string, value string) (*model.SearchFilesByAVUOutput, error) {
+func (t *SearchFilesByAVU) search(fs *irodsclient_fs.FileSystem, accessiblePaths []string, attribute string, value string, limit int) (*model.SearchFilesByAVUOutput, error) {
 	outputEntries := []model.EntryWithAccess{}
 
 	entries, err := fs.SearchByMeta(attribute, value)
@@ -133,6 +145,10 @@ func (t *SearchFilesByAVU) search(fs *irodsclient_fs.FileSystem, accessiblePaths
 	}
 
 	for _, entry := range entries {
+		if len(outputEntries) >= limit {
+			break
+		}
+
 		// check permission
 		// filter out entries not in accessible paths
 		if irods_common.IsAccessAllowed(entry.Path, accessiblePaths) {
