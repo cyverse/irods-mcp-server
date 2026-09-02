@@ -38,7 +38,7 @@ func (t *DownloadFile) GetName() string {
 }
 
 func (t *DownloadFile) GetDescription() string {
-	return `Returns how to download the full contgent of a file (data-object) with the specified path.
+	return `Returns how to download the full content of a file (data-object) with the specified path.
 	The specified path must be an iRODS path.
 	Returns how to download the file using WebDAV, GoCommands (gocmd), and iCommands.`
 }
@@ -152,9 +152,7 @@ func (t *DownloadFile) downloadFile(fs *irodsclient_fs.FileSystem, sourceEntry *
 func (t *DownloadFile) getCurlInstruction(webdavURI string, localPath string, recursive bool) string {
 	inst := ""
 	if recursive {
-		inst = `To download the entire directory using curl, run the following command: 
-curl -r -L -o %s %s
-This is just an example command. You may need to adjust it based on your requirements.
+		inst = `You cannot download the entire directory using curl. Please use other methods for downloading directories.
 `
 	} else {
 		inst = `To download the file using curl, run the following command: 
@@ -183,7 +181,7 @@ func (t *DownloadFile) getWgetInstruction(webdavURI string, localPath string, re
 
 func (t *DownloadFile) getGoCommandsInstruction(irodsPath string, localPath string) string {
 	inst := `To download the entire directory using gocommands, run the following command: 
-	gocmd get -K --progress %s %s
+	gocmd get -k --progress %s %s
 	This is just an example command. You may need to adjust it based on your requirements.
 	You will need to have gocommands installed and configured to use this command.
 	Check out https://learning.cyverse.org/ds/gocommands/ for more details.
@@ -194,14 +192,14 @@ func (t *DownloadFile) getGoCommandsInstruction(irodsPath string, localPath stri
 func (t *DownloadFile) getICommandsInstruction(irodsPath string, localPath string, recursive bool) string {
 	inst := ""
 	if recursive {
-		inst = `To download the entire directory using gocommands, run the following command: 
+		inst = `To download the entire directory using iCommands, run the following command:
 	iget -K -r -P %s %s
 	This is just an example command. You may need to adjust it based on your requirements.
 	You will need to have iCommands installed and configured to use this command.
 	Check out https://learning.cyverse.org/ds/icommands/ for more details.
 	`
 	} else {
-		inst = `To download the file using gocommands, run the following command: 
+		inst = `To download the file using iCommands, run the following command:
 	iget -K -P %s %s
 	This is just an example command. You may need to adjust it based on your requirements.
 	You will need to have iCommands installed and configured to use this command.

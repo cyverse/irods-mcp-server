@@ -40,7 +40,7 @@ func (t *UploadFile) GetName() string {
 }
 
 func (t *UploadFile) GetDescription() string {
-	return `Returns how to upload the full contgent of a file (data-object) to the specified path.
+	return `Returns how to upload the full content of a file (data-object) to the specified path.
 	The specified path must be an iRODS path.
 	Returns how to upload the file using WebDAV, GoCommands (gocmd), and iCommands.`
 }
@@ -164,8 +164,8 @@ This is just an example command. You may need to adjust it based on your require
 }
 
 func (t *UploadFile) getGoCommandsInstruction(localPath string, irodsPath string) string {
-	inst := `To upload the entire directory using gocommands, run the following command: 
-	gocmd put -K --progress %s %s
+	inst := `To upload the file or directory using gocommands, run the following command:
+	gocmd put -k --progress %s %s
 	This is just an example command. You may need to adjust it based on your requirements.
 	You will need to have gocommands installed and configured to use this command.
 	Check out https://learning.cyverse.org/ds/gocommands/ for more details.
@@ -177,14 +177,14 @@ func (t *UploadFile) getGoCommandsInstruction(localPath string, irodsPath string
 func (t *UploadFile) getICommandsInstruction(localPath string, irodsPath string, recursive bool) string {
 	inst := ""
 	if recursive {
-		inst = `To upload the entire directory using gocommands, run the following command: 
+		inst = `To upload the entire directory using iCommands, run the following command:
 	iput -r -P -K %s %s
 	This is just an example command. You may need to adjust it based on your requirements.
 	You will need to have iCommands installed and configured to use this command.
 	Check out https://learning.cyverse.org/ds/icommands/ for more details.
 	`
 	} else {
-		inst = `To upload the file using gocommands, run the following command: 
+		inst = `To upload the file using iCommands, run the following command:
 	iput -K %s %s
 	This is just an example command. You may need to adjust it based on your requirements.
 	You will need to have iCommands installed and configured to use this command.
