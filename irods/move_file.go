@@ -130,6 +130,11 @@ func (t *MoveFile) Handler(ctx context.Context, request *mcp.CallToolRequest) (*
 		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
+	if fs.Exists(irodsNewPath) {
+		outputErr := errors.Newf("destination path %q already exists", irodsNewPath)
+		return irods_common.ToolErrorResult(outputErr), nil
+	}
+
 	content, err := t.moveFile(fs, sourceEntry, irodsNewPath)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to move file (data-object) or directory (collection) from %q to %q", irodsOldPath, irodsNewPath)
