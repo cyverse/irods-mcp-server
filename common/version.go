@@ -73,7 +73,7 @@ func GetVersionParts(version string) (int, int, int) {
 	version = strings.ToLower(version)
 	version = strings.TrimPrefix(version, "v")
 
-	vers := strings.Split(version, ".")
+	vers := strings.SplitN(version, ".", 3)
 	if len(vers) >= 1 {
 		m, err := strconv.Atoi(vers[0])
 		if err == nil {

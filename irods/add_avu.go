@@ -203,7 +203,7 @@ func (t *AddAVU) addAVUToUser(fs *irodsclient_fs.FileSystem, userName string, at
 	user := ""
 	zone := account.ClientZone
 
-	parts := strings.Split(userName, "#")
+	parts := strings.SplitN(userName, "#", 2)
 	if len(parts) == 2 {
 		user = parts[0]
 		zone = parts[1]
