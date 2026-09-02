@@ -112,12 +112,31 @@ func (t *ListAVUs) Handler(ctx context.Context, request *mcp.CallToolRequest) (*
 		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
-	if args.TargetType == "path" {
-		args.Target = irods_common.MakeIRODSPath(t.config, fs.GetAccount(), args.Target)
+	account := fs.GetAccount()
 
-		// check permission
+	switch args.TargetType {
+	case "path":
+		args.Target = irods_common.MakeIRODSPath(t.config, account, args.Target)
 		if !irods_common.IsAccessAllowed(args.Target, t.GetAccessiblePaths(&authValue)) {
 			outputErr := errors.Newf("%q request is not permitted for path %q", t.GetName(), args.Target)
+			return irods_common.ToolErrorResult(outputErr), nil
+		}
+	case "resource":
+		if account.IsAnonymousUser() {
+			outputErr := errors.Newf("%q request is not permitted for anonymous users", t.GetName())
+			return irods_common.ToolErrorResult(outputErr), nil
+		}
+	case "user":
+		if account.IsAnonymousUser() {
+			outputErr := errors.Newf("%q request is not permitted for anonymous users", t.GetName())
+			return irods_common.ToolErrorResult(outputErr), nil
+		}
+		targetUser := args.Target
+		if parts := strings.SplitN(args.Target, "#", 2); len(parts) == 2 {
+			targetUser = parts[0]
+		}
+		if !t.config.IRODSProxyAuth && targetUser != account.ClientUser {
+			outputErr := errors.Newf("%q request is not permitted for user %q", t.GetName(), args.Target)
 			return irods_common.ToolErrorResult(outputErr), nil
 		}
 	}
@@ -207,7 +226,7 @@ func (t *ListAVUs) listAVUsFromUser(fs *irodsclient_fs.FileSystem, userName stri
 	user := ""
 	zone := account.ClientZone
 
-	parts := strings.Split(userName, "#")
+	parts := strings.SplitN(userName, "#", 2)
 	if len(parts) == 2 {
 		user = parts[0]
 		zone = parts[1]
