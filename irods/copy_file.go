@@ -131,6 +131,11 @@ func (t *CopyFile) Handler(ctx context.Context, request *mcp.CallToolRequest) (*
 		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
+	if fs.Exists(irodsDestinationPath) {
+		outputErr := errors.Newf("destination path %q already exists", irodsDestinationPath)
+		return irods_common.ToolErrorResult(outputErr), nil
+	}
+
 	content, err := t.copyFile(fs, sourceEntry, irodsDestinationPath)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to copy file (data-object) or directory (collection) from %q to %q", irodsSourcePath, irodsDestinationPath)
@@ -143,6 +148,14 @@ func (t *CopyFile) Handler(ctx context.Context, request *mcp.CallToolRequest) (*
 func (t *CopyFile) copyFile(fs *irodsclient_fs.FileSystem, sourceEntry *irodsclient_fs.Entry, destPath string) (*model.CopyFileOutput, error) {
 	sourceEntries, copiedEntries, err := t.copyFileInternal(fs, sourceEntry, destPath)
 	if err != nil {
+		// rollback: remove partially-created destination
+		if fs.Exists(destPath) {
+			if sourceEntry.IsDir() {
+				_ = fs.RemoveDir(destPath, true, true)
+			} else {
+				_ = fs.RemoveFile(destPath, true)
+			}
+		}
 		return nil, err
 	}
 
