@@ -11,6 +11,7 @@ type EntryWithAccess struct {
 	ResourceURI      string                           `json:"resource_uri"`
 	WebDAVURI        string                           `json:"webdav_uri"`
 	DirectoryEntries []EntryWithAccess                `json:"directory_entries,omitempty"`
+	Error            string                           `json:"error,omitempty"`
 }
 
 type ListDirectoryOutput struct {
@@ -77,6 +78,7 @@ type RemoveFileOutput struct {
 type TicketWithRestrictions struct {
 	Ticket       *irodsclient_types.IRODSTicket          `json:"ticket"`
 	Restrictions *irodsclient_fs.IRODSTicketRestrictions `json:"restrictions,omitempty"`
+	Error        string                                  `json:"error,omitempty"`
 }
 
 type AVU struct {

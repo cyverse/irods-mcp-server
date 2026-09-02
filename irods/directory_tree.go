@@ -182,11 +182,13 @@ func (t *DirectoryTree) listCollectionRecursivelyInternal(fs *irodsclient_fs.Fil
 	}
 
 	for _, dirEntry := range dirEntries {
-		var subEntries []model.EntryWithAccess = nil
+		var subEntries []model.EntryWithAccess
+		var entryError string
 		if dirEntry.IsDir() && curDepth+1 <= maxDepth {
 			subEntries, err = t.listCollectionRecursivelyInternal(fs, dirEntry, curDepth+1, maxDepth)
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to list directory (collection) recursively %q", dirEntry.Path)
+				entryError = err.Error()
+				subEntries = nil
 			}
 		}
 
@@ -195,6 +197,7 @@ func (t *DirectoryTree) listCollectionRecursivelyInternal(fs *irodsclient_fs.Fil
 			ResourceURI:      irods_common.MakeResourceURI(dirEntry.Path),
 			WebDAVURI:        irods_common.MakeWebdavURL(t.config, dirEntry.Path, fs.GetAccount()),
 			DirectoryEntries: subEntries,
+			Error:            entryError,
 		}
 
 		outputEntries = append(outputEntries, entryStruct)

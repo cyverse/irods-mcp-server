@@ -95,14 +95,15 @@ func (t *ListTickets) listTickets(fs *irodsclient_fs.FileSystem) ([]model.Ticket
 	}
 
 	for _, ticket := range tickets {
-		restrictions, err := fs.GetTicketRestrictions(ticket.ID)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get ticket restrictions for %q", ticket.Name)
+		ticketEntry := model.TicketWithRestrictions{
+			Ticket: ticket,
 		}
 
-		ticketEntry := model.TicketWithRestrictions{
-			Ticket:       ticket,
-			Restrictions: restrictions,
+		restrictions, err := fs.GetTicketRestrictions(ticket.ID)
+		if err != nil {
+			ticketEntry.Error = errors.Wrapf(err, "failed to get ticket restrictions for %q", ticket.Name).Error()
+		} else {
+			ticketEntry.Restrictions = restrictions
 		}
 
 		outputTickets = append(outputTickets, ticketEntry)
