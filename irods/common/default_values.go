@@ -23,7 +23,10 @@ const (
 )
 
 func GetDefaultTCPBufferSize() int {
-	size, _ := ParseSize(GetDefaultTCPBufferSizeString())
+	size, err := ParseSize(GetDefaultTCPBufferSizeString())
+	if err != nil {
+		panic("invalid default TCP buffer size constant: " + err.Error())
+	}
 	return int(size)
 }
 
