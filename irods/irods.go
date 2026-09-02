@@ -24,6 +24,7 @@ type IRODSMCPServer struct {
 	config            *common.Config
 	mcpServer         *mcp.Server
 	irodsfsClientPool *irods_common.IRODSFSClientPool
+	dirListCache      *irods_common.DirListCache
 	resourceTemplates []ResourceTemplateAPI
 	tools             []ToolAPI
 }
@@ -33,6 +34,7 @@ func NewIRODSMCPServer(svr *mcp.Server, config *common.Config) (*IRODSMCPServer,
 		config:            config,
 		mcpServer:         svr,
 		irodsfsClientPool: irods_common.NewIRODSFSClientPool(),
+		dirListCache:      irods_common.NewDirListCache(),
 		resourceTemplates: []ResourceTemplateAPI{},
 		tools:             []ToolAPI{},
 	}
@@ -52,6 +54,10 @@ func NewIRODSMCPServer(svr *mcp.Server, config *common.Config) (*IRODSMCPServer,
 
 func (svr *IRODSMCPServer) GetConfig() *common.Config {
 	return svr.config
+}
+
+func (svr *IRODSMCPServer) GetDirListCache() *irods_common.DirListCache {
+	return svr.dirListCache
 }
 
 func (svr *IRODSMCPServer) Start() error {

@@ -160,7 +160,7 @@ func (t *ListDirectory) Handler(ctx context.Context, request *mcp.CallToolReques
 	}
 
 	// collection
-	content, err := t.listCollection(fs, sourceEntry, offset, limit)
+	content, err := t.listCollection(fs, sourceEntry, authValue.Username, offset, limit)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to list a directory (collection) %q", irodsPath)
 		return irods_common.ToolErrorResult(outputErr), nil
@@ -169,25 +169,31 @@ func (t *ListDirectory) Handler(ctx context.Context, request *mcp.CallToolReques
 	return irods_common.ToolJSONResult(*content)
 }
 
-func (t *ListDirectory) listCollection(fs *irodsclient_fs.FileSystem, sourceEntry *irodsclient_fs.Entry, offset, limit int) (*model.ListDirectoryOutput, error) {
-	outputEntries := []model.EntryWithAccess{}
+const dirListCachePrefix = "list"
 
-	dirEntries, err := fs.List(sourceEntry.Path)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to list directory (collection) %q", sourceEntry.Path)
-	}
+func (t *ListDirectory) listCollection(fs *irodsclient_fs.FileSystem, sourceEntry *irodsclient_fs.Entry, username string, offset, limit int) (*model.ListDirectoryOutput, error) {
+	dirCache := t.mcpServer.GetDirListCache()
 
-	for _, dirEntry := range dirEntries {
-		entryStruct := model.EntryWithAccess{
-			Entry:       dirEntry,
-			ResourceURI: irods_common.MakeResourceURI(dirEntry.Path),
-			WebDAVURI:   irods_common.MakeWebdavURL(t.config, dirEntry.Path, fs.GetAccount()),
+	allEntries, cached := dirCache.Get(dirListCachePrefix, username, sourceEntry.Path)
+	if !cached {
+		dirEntries, err := fs.List(sourceEntry.Path)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to list directory (collection) %q", sourceEntry.Path)
 		}
 
-		outputEntries = append(outputEntries, entryStruct)
+		allEntries = make([]model.EntryWithAccess, 0, len(dirEntries))
+		for _, dirEntry := range dirEntries {
+			allEntries = append(allEntries, model.EntryWithAccess{
+				Entry:       dirEntry,
+				ResourceURI: irods_common.MakeResourceURI(dirEntry.Path),
+				WebDAVURI:   irods_common.MakeWebdavURL(t.config, dirEntry.Path, fs.GetAccount()),
+			})
+		}
+
+		dirCache.Set(dirListCachePrefix, username, sourceEntry.Path, allEntries)
 	}
 
-	total := len(outputEntries)
+	total := len(allEntries)
 	if offset > total {
 		offset = total
 	}
@@ -195,13 +201,12 @@ func (t *ListDirectory) listCollection(fs *irodsclient_fs.FileSystem, sourceEntr
 	if end > total {
 		end = total
 	}
-	outputEntries = outputEntries[offset:end]
 
 	listDirectoryOutput := &model.ListDirectoryOutput{
 		Directory:            sourceEntry,
 		DirectoryResourceURI: irods_common.MakeResourceURI(sourceEntry.Path),
 		DirectoryWebDAVURI:   irods_common.MakeWebdavURL(t.config, sourceEntry.Path, fs.GetAccount()),
-		DirectoryEntries:     outputEntries,
+		DirectoryEntries:     allEntries[offset:end],
 		Total:                total,
 		Offset:               offset,
 		Limit:                limit,

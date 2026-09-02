@@ -160,7 +160,7 @@ func (t *ListDirectoryDetails) Handler(ctx context.Context, request *mcp.CallToo
 	}
 
 	// collection
-	content, err := t.listCollection(fs, sourceEntry, offset, limit)
+	content, err := t.listCollection(fs, sourceEntry, authValue.Username, offset, limit)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to list a directory (collection) %q", irodsPath)
 		return irods_common.ToolErrorResult(outputErr), nil
@@ -169,40 +169,47 @@ func (t *ListDirectoryDetails) Handler(ctx context.Context, request *mcp.CallToo
 	return irods_common.ToolJSONResult(*content)
 }
 
-func (t *ListDirectoryDetails) listCollection(fs *irodsclient_fs.FileSystem, sourceEntry *irodsclient_fs.Entry, offset, limit int) (*model.ListDirectoryOutput, error) {
-	outputEntries := []model.EntryWithAccess{}
+const dirListDetailsCachePrefix = "list_details"
 
-	dirEntries, err := fs.List(sourceEntry.Path)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to list directory (collection) %q", sourceEntry.Path)
-	}
+func (t *ListDirectoryDetails) listCollection(fs *irodsclient_fs.FileSystem, sourceEntry *irodsclient_fs.Entry, username string, offset, limit int) (*model.ListDirectoryOutput, error) {
+	dirCache := t.mcpServer.GetDirListCache()
 
-	accesses, err := fs.ListACLsForEntries(sourceEntry.Path)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get access for entries in %q", sourceEntry.Path)
-	}
+	allEntries, cached := dirCache.Get(dirListDetailsCachePrefix, username, sourceEntry.Path)
+	if !cached {
+		dirEntries, err := fs.List(sourceEntry.Path)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to list directory (collection) %q", sourceEntry.Path)
+		}
 
-	for _, dirEntry := range dirEntries {
-		entryAccesses := []*irodsclient_types.IRODSAccess{}
+		accesses, err := fs.ListACLsForEntries(sourceEntry.Path)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get access for entries in %q", sourceEntry.Path)
+		}
 
-		// find the access for the entry
-		for _, entryAccess := range accesses {
-			if entryAccess.Path == dirEntry.Path {
-				entryAccesses = append(entryAccesses, entryAccess)
+		// build an access index keyed by path for O(n) lookup
+		accessIndex := make(map[string][]*irodsclient_types.IRODSAccess, len(accesses))
+		for _, a := range accesses {
+			accessIndex[a.Path] = append(accessIndex[a.Path], a)
+		}
+
+		allEntries = make([]model.EntryWithAccess, 0, len(dirEntries))
+		for _, dirEntry := range dirEntries {
+			entryAccesses := accessIndex[dirEntry.Path]
+			if entryAccesses == nil {
+				entryAccesses = []*irodsclient_types.IRODSAccess{}
 			}
+			allEntries = append(allEntries, model.EntryWithAccess{
+				Entry:       dirEntry,
+				ResourceURI: irods_common.MakeResourceURI(dirEntry.Path),
+				WebDAVURI:   irods_common.MakeWebdavURLWithAccesses(t.config, dirEntry.Path, fs.GetAccount(), entryAccesses),
+				Accesses:    entryAccesses,
+			})
 		}
 
-		entryWithAccessEnt := model.EntryWithAccess{
-			Entry:       dirEntry,
-			ResourceURI: irods_common.MakeResourceURI(dirEntry.Path),
-			WebDAVURI:   irods_common.MakeWebdavURLWithAccesses(t.config, dirEntry.Path, fs.GetAccount(), entryAccesses),
-			Accesses:    entryAccesses,
-		}
-
-		outputEntries = append(outputEntries, entryWithAccessEnt)
+		dirCache.Set(dirListDetailsCachePrefix, username, sourceEntry.Path, allEntries)
 	}
 
-	total := len(outputEntries)
+	total := len(allEntries)
 	if offset > total {
 		offset = total
 	}
@@ -210,13 +217,12 @@ func (t *ListDirectoryDetails) listCollection(fs *irodsclient_fs.FileSystem, sou
 	if end > total {
 		end = total
 	}
-	outputEntries = outputEntries[offset:end]
 
 	listDirectoryOutput := &model.ListDirectoryOutput{
 		Directory:            sourceEntry,
 		DirectoryResourceURI: irods_common.MakeResourceURI(sourceEntry.Path),
 		DirectoryWebDAVURI:   irods_common.MakeWebdavURL(t.config, sourceEntry.Path, fs.GetAccount()),
-		DirectoryEntries:     outputEntries,
+		DirectoryEntries:     allEntries[offset:end],
 		Total:                total,
 		Offset:               offset,
 		Limit:                limit,
