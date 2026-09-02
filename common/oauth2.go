@@ -97,6 +97,9 @@ func (o *OAuth2) CheckOAuth(next http.Handler) http.HandlerFunc {
 			"method": request.Method,
 		})
 		logger.Debug("Request received, checking oauth")
+		// Strip any client-supplied X-Forwarded-User to prevent spoofing;
+		// only this middleware may set it (after successful validation below).
+		request.Header.Del("X-Forwarded-User")
 		authHeader := request.Header.Get("Authorization")
 		if authHeader == "" {
 			logger.Error("Authorization header is missing")

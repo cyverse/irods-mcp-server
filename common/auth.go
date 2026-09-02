@@ -81,7 +81,7 @@ func NewAuthValueForSTDIO(config *Config) AuthValue {
 }
 
 func (a *AuthValue) IsSTDIO() bool {
-	return a.ServerMode == "stdio"
+	return a.ServerMode == ServerModeSTDIO
 }
 
 func (a *AuthValue) IsHTTP() bool {
@@ -122,7 +122,7 @@ func (a *AuthValue) parseBasicAuth() (string, string) {
 
 		username := ""
 		password := ""
-		authArr := strings.Split(authToken, ":")
+		authArr := strings.SplitN(authToken, ":", 2)
 		if len(authArr) > 0 {
 			username = authArr[0]
 		}
