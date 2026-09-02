@@ -1,7 +1,7 @@
 remote: true
 service_url: http://:8080
 background: true
-debug: true
+debug: false
 log_path: /tmp/irods-mcp-server.log
 
 irods_host: data.cyverse.org

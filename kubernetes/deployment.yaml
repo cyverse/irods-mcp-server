@@ -28,7 +28,7 @@ spec:
         - name: IRODS_MCP_SVR_BACKGROUND
           value: "false"
         - name: IRODS_MCP_SVR_DEBUG
-          value: "true"
+          value: "false"
         - name: IRODS_MCP_SVR_LOG_PATH
           value: "/data/irods-mcp-server.log"
         - name: IRODS_MCP_SVR_IRODS_PROXY_AUTH
