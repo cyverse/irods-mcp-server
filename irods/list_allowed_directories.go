@@ -2,6 +2,7 @@ package irods
 
 import (
 	"context"
+	"sort"
 
 	"github.com/cockroachdb/errors"
 	"github.com/cyverse/irods-mcp-server/common"
@@ -99,6 +100,10 @@ func (t *ListAllowedDirectories) listAllowedDirectories(authValue *common.AuthVa
 			Allowed:     true,
 		})
 	}
+
+	sort.Slice(allowedAPIList, func(i, j int) bool {
+		return allowedAPIList[i].Path < allowedAPIList[j].Path
+	})
 
 	listAllowedDirectoriesOutput := &model.ListAllowedDirectories{
 		Directories: allowedAPIList,
