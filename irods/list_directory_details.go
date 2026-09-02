@@ -133,7 +133,7 @@ func (t *ListDirectoryDetails) Handler(ctx context.Context, request *mcp.CallToo
 	// list
 	sourceEntry, err := fs.Stat(irodsPath)
 	if err != nil {
-		if !irodsclient_types.IsFileNotFoundError(err) {
+		if irodsclient_types.IsFileNotFoundError(err) {
 			outputErr := errors.Wrapf(err, "failed to find a directory (collection) %q", irodsPath)
 			return irods_common.ToolErrorResult(outputErr), nil
 		}
