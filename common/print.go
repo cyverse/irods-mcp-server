@@ -51,14 +51,14 @@ func GetTerminalWriter() *TerminalWriter {
 }
 
 func PrintInfoln(a ...any) (n int, err error) {
-	if log.GetLevel() > log.InfoLevel {
+	if log.GetLevel() >= log.InfoLevel {
 		return Println(a...)
 	}
 	return 0, nil
 }
 
 func PrintInfof(format string, a ...any) (n int, err error) {
-	if log.GetLevel() > log.InfoLevel {
+	if log.GetLevel() >= log.InfoLevel {
 		return Printf(format, a...)
 	}
 	return 0, nil
@@ -77,15 +77,14 @@ func Println(a ...any) (n int, err error) {
 }
 
 func Fprintf(w io.Writer, format string, a ...any) (int, error) {
-	terminalOutput.Lock()
-	defer terminalOutput.Unlock()
-
 	return fmt.Fprintf(w, format, a...)
 }
 
 func PrintErrorf(format string, a ...any) (int, error) {
-	terminalOutput.Lock()
-	defer terminalOutput.Unlock()
+	if terminalOutput != nil {
+		terminalOutput.Lock()
+		defer terminalOutput.Unlock()
+	}
 
 	red := "\033[31m"
 	reset := "\033[0m"
