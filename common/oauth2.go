@@ -92,8 +92,6 @@ func NewOAuth2(McpURL string, OIDCDiscoveryURL string, clientID, clientSecret st
 // CheckOAuth is a middleware that checks OAuth2 access token in the header
 func (o *OAuth2) CheckOAuth(next http.Handler) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		defer next.ServeHTTP(writer, request)
-
 		logger := log.WithFields(log.Fields{
 			"uri":    request.RequestURI,
 			"method": request.Method,
@@ -101,16 +99,19 @@ func (o *OAuth2) CheckOAuth(next http.Handler) http.HandlerFunc {
 		logger.Debug("Request received, checking oauth")
 		authHeader := request.Header.Get("Authorization")
 		if authHeader == "" {
-			//logger.Error("Authorization header is missing")
+			logger.Error("Authorization header is missing")
+			http.Error(writer, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 		token, isBearer := strings.CutPrefix(authHeader, "Bearer ")
 		if !isBearer {
-			//logger.Error("Authorization header is not bearer token")
+			logger.Error("Authorization header is not bearer token")
+			http.Error(writer, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 		if token == "" {
-			//logger.Error("token is empty")
+			logger.Error("token is empty")
+			http.Error(writer, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
@@ -120,15 +121,18 @@ func (o *OAuth2) CheckOAuth(next http.Handler) http.HandlerFunc {
 		valid, err := o.oauthIntrospectToken(o.tokenIntrospectionEndpoint, o.ClientID, o.ClientSecret, token)
 		if err != nil {
 			logger.WithError(err).Error("Failed to introspect token")
+			http.Error(writer, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 		if !valid {
 			logger.Error("invalid token")
+			http.Error(writer, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 		userinfo, err := o.oauthGetUserinfo(o.userinfoEndpoint, token)
 		if err != nil {
 			log.WithError(err).Error("Failed to get userinfo for token")
+			http.Error(writer, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
@@ -138,6 +142,7 @@ func (o *OAuth2) CheckOAuth(next http.Handler) http.HandlerFunc {
 		// propagate the username to auth module for irods access
 		// userinfo.PreferredUsername is expected to be the iRODS username
 		request.Header.Set("X-Forwarded-User", userinfo.PreferredUsername)
+		next.ServeHTTP(writer, request)
 	}
 }
 
