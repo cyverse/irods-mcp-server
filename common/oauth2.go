@@ -6,11 +6,14 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/cockroachdb/errors"
 
 	log "github.com/sirupsen/logrus"
 )
+
+const oidcHTTPTimeout = 30 * time.Second
 
 type OAuth2 struct {
 	// the /mcp endpoint that MCP server is hosted on
@@ -25,6 +28,8 @@ type OAuth2 struct {
 	// Client ID and secret to validate access token
 	ClientID     string
 	ClientSecret string
+
+	httpClient *http.Client
 }
 
 type OIDCDiscoveryResponse struct {
@@ -60,11 +65,17 @@ type OIDCDiscoveryResponse struct {
 }
 
 func NewOAuth2(McpURL string, OIDCDiscoveryURL string, clientID, clientSecret string) (*OAuth2, error) {
-	resp, err := http.Get(OIDCDiscoveryURL)
+	client := &http.Client{Timeout: oidcHTTPTimeout}
+
+	resp, err := client.Get(OIDCDiscoveryURL)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, errors.Newf("OIDC discovery request failed with status %s", resp.Status)
+	}
 
 	var respBody OIDCDiscoveryResponse
 	err = json.NewDecoder(resp.Body).Decode(&respBody)
@@ -86,6 +97,7 @@ func NewOAuth2(McpURL string, OIDCDiscoveryURL string, clientID, clientSecret st
 		userinfoEndpoint:           respBody.UserinfoEndpoint,
 		ClientID:                   clientID,
 		ClientSecret:               clientSecret,
+		httpClient:                 client,
 	}, nil
 }
 
@@ -150,15 +162,20 @@ func (o *OAuth2) CheckOAuth(next http.Handler) http.HandlerFunc {
 }
 
 func (o *OAuth2) oauthGetUserinfo(userinfoEndpoint string, token string) (UserInfo, error) {
-	resp, err := http.PostForm(userinfoEndpoint, url.Values{
+	resp, err := o.httpClient.PostForm(userinfoEndpoint, url.Values{
 		"access_token": {token},
 	})
 	if err != nil {
 		return UserInfo{}, err
 	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return UserInfo{}, errors.Newf("userinfo request failed with status %s", resp.Status)
+	}
+
 	var userInfo UserInfo
-	err = json.NewDecoder(resp.Body).Decode(&userInfo)
-	if err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
 		return UserInfo{}, err
 	}
 	return userInfo, nil
@@ -187,7 +204,7 @@ func (o *OAuth2) oauthIntrospectToken(inspectEndpoint string, oauthClientID, oau
 	}
 	request.SetBasicAuth(oauthClientID, oauthClientSecret)
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := http.DefaultClient.Do(request)
+	resp, err := o.httpClient.Do(request)
 	if err != nil {
 		log.WithError(err).WithFields(log.Fields{
 			"endpoint": inspectEndpoint,
@@ -213,10 +230,6 @@ func (o *OAuth2) oauthIntrospectToken(inspectEndpoint string, oauthClientID, oau
 		log.WithError(err).Error("Failed to unmarshal claims from response body")
 		return false, err
 	}
-	log.WithFields(log.Fields{
-		"claims": claims,
-	}).Info("Successfully inspect token")
-
 	active, ok := claims["active"]
 	if !ok {
 		msg := "the token introspection response did not contain the active flag"
@@ -226,20 +239,14 @@ func (o *OAuth2) oauthIntrospectToken(inspectEndpoint string, oauthClientID, oau
 	switch isActive := active.(type) {
 	case bool:
 		if !isActive {
-			msg := "invalid or expired access token"
-			log.WithField("claims", claims).Error(msg)
-			return false, errors.New(msg)
+			log.Error("invalid or expired access token")
+			return false, errors.New("invalid or expired access token")
 		}
 	default:
-		msg := "invalid value for active flag"
-		log.WithField("claims", claims).Error(msg)
-		return false, errors.New(msg)
+		log.Error("invalid value for active flag")
+		return false, errors.New("invalid value for active flag")
 	}
-	log.WithFields(log.Fields{
-		"token":  o.getTokenForDisplay(accessToken),
-		"active": active,
-		"claims": claims,
-	}).Info("Successfully inspect token, token is active")
+	log.WithField("token", o.getTokenForDisplay(accessToken)).Info("token is active")
 
 	return true, nil
 }
@@ -348,7 +355,7 @@ func (o *OAuth2) HandleAuthServerMetadataURI(w http.ResponseWriter, r *http.Requ
 	authServerURL.Path = "/.well-known/oauth-authorization-server"
 
 	// Connect to the authorization server metadata endpoint and proxy the response
-	resp, err := http.Get(authServerURL.String())
+	resp, err := o.httpClient.Get(authServerURL.String())
 	if err != nil {
 		http.Error(w, "Failed to get authorization server metadata", http.StatusInternalServerError)
 		return
@@ -361,14 +368,20 @@ func (o *OAuth2) HandleAuthServerMetadataURI(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// Propagate non-2xx upstream responses directly without trying to parse them.
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
+		w.WriteHeader(resp.StatusCode)
+		w.Write(bodyBytes)
+		return
+	}
+
 	authMetadata := AuthorizationMetadata{}
-	err = json.Unmarshal(bodyBytes, &authMetadata)
-	if err != nil {
+	if err = json.Unmarshal(bodyBytes, &authMetadata); err != nil {
 		http.Error(w, "Failed to parse authorization server metadata", http.StatusInternalServerError)
 		return
 	}
 
-	// Write the response back to the client
 	jsonBytes, err := json.Marshal(authMetadata)
 	if err != nil {
 		http.Error(w, "Failed to marshal authorization server metadata", http.StatusInternalServerError)
@@ -376,7 +389,7 @@ func (o *OAuth2) HandleAuthServerMetadataURI(w http.ResponseWriter, r *http.Requ
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(resp.StatusCode)
+	w.WriteHeader(http.StatusOK)
 	w.Write(jsonBytes)
 }
 
@@ -396,17 +409,17 @@ func (o *OAuth2) HandleOIDCDiscoveryURI(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Connect to the authorization server metadata endpoint and proxy the response
-	resp, err := http.Get(o.OIDCDiscoveryURL)
+	resp, err := o.httpClient.Get(o.OIDCDiscoveryURL)
 	if err != nil {
-		http.Error(w, "Failed to get authorization server metadata", http.StatusInternalServerError)
+		http.Error(w, "Failed to get OIDC discovery document", http.StatusInternalServerError)
 		return
 	}
 	defer resp.Body.Close()
 
-	_, err = io.Copy(w, resp.Body)
-	if err != nil {
-		http.Error(w, "Failed to read authorization server metadata", http.StatusInternalServerError)
-		return
+	w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
+	w.WriteHeader(resp.StatusCode)
+	if _, err = io.Copy(w, resp.Body); err != nil {
+		log.WithError(err).Error("Failed to proxy OIDC discovery response")
 	}
 }
 
