@@ -1,7 +1,6 @@
 package common
 
 import (
-	"encoding/base64"
 	"encoding/json"
 
 	"github.com/cockroachdb/errors"
@@ -77,7 +76,7 @@ func ResourceBlobResult(uri string, mimetype string, blob []byte) (*mcp.ReadReso
 		{
 			URI:      uri,
 			MIMEType: mimetype,
-			Blob:     []byte(base64.StdEncoding.EncodeToString(blob)),
+			Blob:     blob,
 		},
 	}
 

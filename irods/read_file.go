@@ -2,7 +2,6 @@ package irods
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 
@@ -205,7 +204,7 @@ func (t *ReadFile) readFile(fs *irodsclient_fs.FileSystem, sourceEntry *irodscli
 						Text: fmt.Sprintf("Image file (data-object): %q (%q type, %d bytes)", sourceEntry.Path, mimeType, sourceEntry.Size),
 					},
 					&mcp.ImageContent{
-						Data:     []byte(base64.StdEncoding.EncodeToString(content)),
+						Data:     content,
 						MIMEType: mimeType,
 					},
 				},
@@ -227,7 +226,7 @@ func (t *ReadFile) readFile(fs *irodsclient_fs.FileSystem, sourceEntry *irodscli
 						Resource: &mcp.ResourceContents{
 							URI:      resourceURI,
 							MIMEType: mimeType,
-							Blob:     []byte(base64.StdEncoding.EncodeToString(content)),
+							Blob:     content,
 						},
 					},
 				},
