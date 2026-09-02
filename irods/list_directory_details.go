@@ -126,10 +126,8 @@ func (t *ListDirectoryDetails) Handler(ctx context.Context, request *mcp.CallToo
 
 	// check permission
 	if !irods_common.IsAccessAllowed(irodsPath, t.GetAccessiblePaths(&authValue)) {
-		// try to use ListDirectory
-		t2 := NewListDirectory(t.mcpServer)
-		handler := t2.GetHandler()
-		return handler(ctx, request)
+		outputErr := errors.Newf("access to path %q is not allowed", irodsPath)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	// list
