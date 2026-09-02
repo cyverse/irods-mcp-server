@@ -157,6 +157,12 @@ func (t *DeleteAVU) Handler(ctx context.Context, request *mcp.CallToolRequest) (
 		}
 	}
 
+	// Validate: id or attribute must be provided
+	if args.ID <= 0 && args.Attribute == "" {
+		outputErr := errors.New("either id or attribute must be provided")
+		return irods_common.ToolErrorResult(outputErr), nil
+	}
+
 	// Delete AVU
 	content, err := t.deleteAVU(fs, args.TargetType, args.Target, args.ID, args.Attribute, args.Value, args.Unit)
 	if err != nil {
