@@ -2,6 +2,7 @@ package irods
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 
 	"github.com/cockroachdb/errors"
@@ -20,6 +21,8 @@ const (
 type ListAVUsInputArgs struct {
 	TargetType string `json:"target_type"`
 	Target     string `json:"target"`
+	Offset     int    `json:"offset"`
+	Limit      int    `json:"limit"`
 }
 
 type ListAVUs struct {
@@ -39,7 +42,8 @@ func (t *ListAVUs) GetName() string {
 }
 
 func (t *ListAVUs) GetDescription() string {
-	return `List AVUs (attribute-value-unit) from a file (data-object), directory (collection), resource, or user.`
+	return `List AVUs (attribute-value-unit) from a file (data-object), directory (collection), resource, or user.
+	Use offset and limit parameters to paginate through large AVU lists. The response includes a 'total' field with the total AVU count.`
 }
 
 func (t *ListAVUs) GetTool() *mcp.Tool {
@@ -57,6 +61,16 @@ func (t *ListAVUs) GetTool() *mcp.Tool {
 				"target": {
 					Type:        "string",
 					Description: "The target to list AVU. Path for 'path' target_type, resource name for 'resource' target_type, and user name for 'user' target_type.",
+				},
+				"offset": {
+					Type:        "number",
+					Description: "Number of AVU entries to skip (for pagination). Default: 0.",
+					Default:     json.RawMessage("0"),
+				},
+				"limit": {
+					Type:        "number",
+					Description: "Maximum number of AVU entries to return (for pagination). Default: 100, max: 500.",
+					Default:     json.RawMessage("100"),
 				},
 			},
 			Required: []string{"target_type", "target"},
@@ -141,8 +155,19 @@ func (t *ListAVUs) Handler(ctx context.Context, request *mcp.CallToolRequest) (*
 		}
 	}
 
+	offset := args.Offset
+	if offset < 0 {
+		offset = 0
+	}
+	limit := args.Limit
+	if limit <= 0 {
+		limit = 100
+	} else if limit > 500 {
+		limit = 500
+	}
+
 	// List AVUs
-	content, err := t.listAVUs(fs, args.TargetType, args.Target)
+	content, err := t.listAVUs(fs, args.TargetType, args.Target, offset, limit)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to list AVUs from %q in %q type", args.Target, args.TargetType)
 		return irods_common.ToolErrorResult(outputErr), nil
@@ -151,17 +176,36 @@ func (t *ListAVUs) Handler(ctx context.Context, request *mcp.CallToolRequest) (*
 	return irods_common.ToolJSONResult(*content)
 }
 
-func (t *ListAVUs) listAVUs(fs *irodsclient_fs.FileSystem, targetType string, target string) (*model.ListAVUsOutput, error) {
+func (t *ListAVUs) listAVUs(fs *irodsclient_fs.FileSystem, targetType string, target string, offset, limit int) (*model.ListAVUsOutput, error) {
+	var output *model.ListAVUsOutput
+	var err error
 	switch targetType {
 	case "path":
-		return t.listAVUsFromPath(fs, target)
+		output, err = t.listAVUsFromPath(fs, target)
 	case "resource":
-		return t.listAVUsFromResource(fs, target)
+		output, err = t.listAVUsFromResource(fs, target)
 	case "user":
-		return t.listAVUsFromUser(fs, target)
+		output, err = t.listAVUsFromUser(fs, target)
 	default:
 		return nil, errors.Newf("invalid target_type %q", targetType)
 	}
+	if err != nil {
+		return nil, err
+	}
+
+	total := len(output.AVUs)
+	if offset > total {
+		offset = total
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	output.AVUs = output.AVUs[offset:end]
+	output.Total = total
+	output.Offset = offset
+	output.Limit = limit
+	return output, nil
 }
 
 func (t *ListAVUs) listAVUsFromPath(fs *irodsclient_fs.FileSystem, path string) (*model.ListAVUsOutput, error) {

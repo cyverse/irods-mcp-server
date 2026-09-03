@@ -92,6 +92,9 @@ type ListAVUsOutput struct {
 	TargetType string `json:"target_type"`
 	Target     string `json:"target"`
 	AVUs       []AVU  `json:"avus"`
+	Total      int    `json:"total"`
+	Offset     int    `json:"offset"`
+	Limit      int    `json:"limit"`
 }
 
 type AddAVUOutput struct {

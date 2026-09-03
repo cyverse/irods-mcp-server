@@ -43,7 +43,8 @@ func (t *ListDirectory) GetName() string {
 func (t *ListDirectory) GetDescription() string {
 	return `Get a list of files (data-objects) and directories (collections) in a specified path.
 	The specified path must be an iRODS path. The output is in JSON format.
-	The output contains entries in the given directory (collection) path. Use offset and limit parameters to paginate through large directories.`
+	The output contains entries in the given directory (collection) path. Use offset and limit parameters to paginate through large directories.
+	Note: the full directory listing is fetched before applying offset/limit (in-memory pagination). The response includes a 'total' field with the total entry count.`
 }
 
 func (t *ListDirectory) GetTool() *mcp.Tool {
