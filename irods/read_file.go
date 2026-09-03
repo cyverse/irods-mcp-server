@@ -63,7 +63,7 @@ func (t *ReadFile) GetTool() *mcp.Tool {
 				},
 				"length": {
 					Type:        "number",
-					Description: fmt.Sprintf("The maximum length of the file to read. Default value is %d. Length must be greater than or equal to %d. Length must not be too large, otherwise the output may be too large. Maximum value is %d.", irods_common.MaxInlineSize, irods_common.MinReadLength, irods_common.MaxInlineSize),
+					Description: fmt.Sprintf("The maximum length of the file to read. Default value is %d (64KB). Valid range: [%d, %d] (max 1MB). Values outside this range are clamped.", irods_common.MinReadLength, irods_common.MinReadLength, irods_common.MaxInlineSize),
 					Default:     json.RawMessage(fmt.Sprintf("%d", irods_common.MinReadLength)),
 				},
 			},

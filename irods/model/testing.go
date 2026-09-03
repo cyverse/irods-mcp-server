@@ -16,16 +16,14 @@ type ToolRequest struct {
 }
 
 func (t *ToolRequest) ToCallToolRequest() (mcp.CallToolRequest, error) {
-	var req mcp.CallToolRequest
-
-	jsonBytes, err := json.Marshal(t)
+	argsJSON, err := json.Marshal(t.Params.Arguments)
 	if err != nil {
 		return mcp.CallToolRequest{}, err
 	}
-
-	err = json.Unmarshal(jsonBytes, &req)
-	if err != nil {
-		return mcp.CallToolRequest{}, err
+	var req mcp.CallToolRequest
+	req.Params = &mcp.CallToolParamsRaw{
+		Name:      t.Params.Name,
+		Arguments: argsJSON,
 	}
 	return req, nil
 }
@@ -40,14 +38,11 @@ type ToolResponse struct {
 }
 
 func (t *ToolResponse) FromCallToolResult(result *mcp.CallToolResult) error {
-	jsonBytes, err := json.Marshal(result)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(jsonBytes, t)
-	if err != nil {
-		return err
+	t.Content = make([]ToolResponseContent, 0, len(result.Content))
+	for _, c := range result.Content {
+		if tc, ok := c.(*mcp.TextContent); ok {
+			t.Content = append(t.Content, ToolResponseContent{Type: "text", Text: tc.Text})
+		}
 	}
 	return nil
 }

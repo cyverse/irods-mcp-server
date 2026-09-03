@@ -43,9 +43,9 @@ func (t *WriteFile) GetName() string {
 }
 
 func (t *WriteFile) GetDescription() string {
-	return `Write the partial content to a file (data-object) with the specified path and offset.
-	The specified path must be an iRODS path.
-	If the file is too large to be displayed inline, use the WebDAV URI to access it.`
+	return `Write content to a file (data-object) at the specified path and byte offset.
+	The specified path must be an iRODS path. Content must be Base64-encoded.
+	For new files, offset must be 0. For existing files, offset must not exceed the file size.`
 }
 
 func (t *WriteFile) GetTool() *mcp.Tool {
@@ -151,8 +151,10 @@ func (t *WriteFile) Handler(ctx context.Context, request *mcp.CallToolRequest) (
 	inputOffset := args.Offset
 	if inputOffset < 0 {
 		inputOffset = 0
-	} else if inputOffset >= fileSize {
-		inputOffset = fileSize
+	}
+	if inputOffset > fileSize {
+		outputErr := errors.Newf("offset %d exceeds file size %d for %q", inputOffset, fileSize, irodsPath)
+		return irods_common.ToolErrorResult(outputErr), nil
 	}
 
 	content, err := t.writeFile(fs, irodsPath, inputOffset, args.Content)
