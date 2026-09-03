@@ -72,6 +72,7 @@ func (t *GetFileInfo) GetAccessiblePaths(authValue *common.AuthValue) []string {
 	sharedPath := irods_common.GetSharedPath(t.config, account)
 
 	paths := []string{
+		sharedPath,
 		sharedPath + "/*",
 	}
 
