@@ -19,6 +19,9 @@ func GetHomePath(config *common.Config, account *irodsclient_types.IRODSAccount)
 	return account.GetHomeDirPath()
 }
 
+// GetSharedPath returns the shared collection path: /<zone>/home/<shared_dir_name>.
+// The shared directory is placed alongside user home collections under /<zone>/home/,
+// which is the conventional iRODS layout for a shared/public collection.
 func GetSharedPath(config *common.Config, account *irodsclient_types.IRODSAccount) string {
 	if account == nil {
 		account = GetEmptyIRODSAccount(config)

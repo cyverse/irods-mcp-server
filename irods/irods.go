@@ -334,26 +334,26 @@ func (svr *IRODSMCPServer) GetResourceTemplates() []ResourceTemplateAPI {
 	return svr.resourceTemplates
 }
 
-func (svr *IRODSMCPServer) GetResourceTemplate(name string) ResourceTemplateAPI {
+func (svr *IRODSMCPServer) GetResourceTemplate(name string) (ResourceTemplateAPI, bool) {
 	for _, resourceTemplate := range svr.resourceTemplates {
 		if resourceTemplate.GetName() == name {
-			return resourceTemplate
+			return resourceTemplate, true
 		}
 	}
 
-	return nil
+	return nil, false
 }
 
 func (svr *IRODSMCPServer) GetTools() []ToolAPI {
 	return svr.tools
 }
 
-func (svr *IRODSMCPServer) GetTool(name string) ToolAPI {
+func (svr *IRODSMCPServer) GetTool(name string) (ToolAPI, bool) {
 	for _, tool := range svr.tools {
 		if tool.GetName() == name {
-			return tool
+			return tool, true
 		}
 	}
 
-	return nil
+	return nil, false
 }
