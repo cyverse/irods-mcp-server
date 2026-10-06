@@ -116,20 +116,16 @@ func (svr *IRODSMCPServer) startHTTPServer() error {
 	serviceURL = u.String()
 	logger.Infof("address: %s", serviceURL)
 
-	sseEndpoint := strings.TrimRight(u.Path, "/") + "/sse"
-	streamableHttpEndpoint := strings.TrimRight(u.Path, "/") + "/mcp"
-	healthCheckEndpoint := strings.TrimRight(u.Path, "/") + "/health"
+	basePath := strings.TrimRight(u.Path, "/")
+	mcpEndpoint := basePath + "/"
+	healthCheckEndpoint := basePath + "/health"
 
-	logger.Infof("SSE endpoint: %s", sseEndpoint)
-	logger.Infof("Streamable-HTTP endpoint: %s", streamableHttpEndpoint)
+	logger.Infof("Streamable-HTTP endpoint: %s", mcpEndpoint)
 	logger.Infof("Health check endpoint: %s", healthCheckEndpoint)
 
 	mcpFunc := func(request *http.Request) *mcp.Server {
 		return svr.mcpServer
 	}
-
-	sseOptions := mcp.SSEOptions{}
-	sseHandler := mcp.NewSSEHandler(mcpFunc, &sseOptions)
 
 	shttpOptions := mcp.StreamableHTTPOptions{
 		Stateless: false,
@@ -151,27 +147,37 @@ func (svr *IRODSMCPServer) startHTTPServer() error {
 
 	mux := http.NewServeMux()
 
+	mcpHandler := shttpHandler.ServeHTTP
+
 	// oauth2
 	if svr.config.IsOAuth2Enabled() {
-		oauth2, err := common.NewOAuth2(svr.config.GetPublicServiceURL()+"/mcp", svr.config.OIDCDiscoveryURL, svr.config.OAuth2ClientID, svr.config.OAuth2ClientSecret)
+		oauth2, err := common.NewOAuth2(svr.config.GetPublicServiceURL(), svr.config.OIDCDiscoveryURL, svr.config.OAuth2ClientID, svr.config.OAuth2ClientSecret)
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize OAuth2")
 		}
 
-		wellknownEndpoint := strings.TrimRight(u.Path, "/") + "/.well-known"
+		wellknownEndpoint := basePath + "/.well-known"
 
+		// the patterns with a trailing slash register the subtree: a client asking
+		// about the resource "https://host/datastore" requests the metadata at
+		// "/.well-known/oauth-protected-resource/datastore" (RFC 9728)
 		mux.HandleFunc(wellknownEndpoint+"/oauth-protected-resource", oauth2.HandleResourceMetadataURI)
-		mux.HandleFunc(wellknownEndpoint+"/oauth-protected-resource/mcp", oauth2.HandleResourceMetadataURI)
+		mux.HandleFunc(wellknownEndpoint+"/oauth-protected-resource/", oauth2.HandleResourceMetadataURI)
 		mux.HandleFunc(wellknownEndpoint+"/oauth-authorization-server", oauth2.HandleAuthServerMetadataURI)
-		mux.HandleFunc(wellknownEndpoint+"/oauth-authorization-server/mcp", oauth2.HandleAuthServerMetadataURI)
+		mux.HandleFunc(wellknownEndpoint+"/oauth-authorization-server/", oauth2.HandleAuthServerMetadataURI)
 		mux.HandleFunc(wellknownEndpoint+"/openid-configuration", oauth2.HandleOIDCDiscoveryURI)
-		mux.HandleFunc(wellknownEndpoint+"/openid-configuration/mcp", oauth2.HandleOIDCDiscoveryURI)
+		mux.HandleFunc(wellknownEndpoint+"/openid-configuration/", oauth2.HandleOIDCDiscoveryURI)
 
-		mux.HandleFunc(sseEndpoint, oauth2.CheckOAuth(sseHandler))
-		mux.HandleFunc(streamableHttpEndpoint, oauth2.CheckOAuth(shttpHandler))
-	} else {
-		mux.HandleFunc(sseEndpoint, sseHandler.ServeHTTP)
-		mux.HandleFunc(streamableHttpEndpoint, shttpHandler.ServeHTTP)
+		mcpHandler = oauth2.CheckOAuth(shttpHandler)
+	}
+
+	// registered last, but ServeMux dispatches on the most specific pattern, so
+	// the health check and the discovery documents above still win over this one
+	mux.HandleFunc(mcpEndpoint, mcpHandler)
+	if len(basePath) > 0 {
+		// without this, ServeMux answers the base path itself with a 301 redirect
+		// to its trailing slash form, which turns a client POST into a GET
+		mux.HandleFunc(basePath, mcpHandler)
 	}
 
 	mux.HandleFunc(healthCheckEndpoint, healthCheckHandler)

@@ -13,11 +13,15 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const oidcHTTPTimeout = 30 * time.Second
+const (
+	oidcHTTPTimeout = 30 * time.Second
+
+	resourceMetadataPath = "/.well-known/oauth-protected-resource"
+)
 
 type OAuth2 struct {
-	// the /mcp endpoint that MCP server is hosted on
-	McpURL string
+	// the public base URL that the MCP server is reachable at
+	ResourceURL string
 	// URL of the "issuer" for .well-known/openid-configuration
 	AuthorizationURL string
 	// URL to .well-known/openid-configuration
@@ -64,7 +68,7 @@ type OIDCDiscoveryResponse struct {
 	IntrospectionEndpoint                      string   `json:"introspection_endpoint"`
 }
 
-func NewOAuth2(McpURL string, OIDCDiscoveryURL string, clientID, clientSecret string) (*OAuth2, error) {
+func NewOAuth2(resourceURL string, OIDCDiscoveryURL string, clientID, clientSecret string) (*OAuth2, error) {
 	client := &http.Client{Timeout: oidcHTTPTimeout}
 
 	resp, err := client.Get(OIDCDiscoveryURL)
@@ -90,7 +94,7 @@ func NewOAuth2(McpURL string, OIDCDiscoveryURL string, clientID, clientSecret st
 	}
 
 	return &OAuth2{
-		McpURL:                     McpURL,
+		ResourceURL:                strings.TrimRight(resourceURL, "/"),
 		AuthorizationURL:           respBody.Issuer,
 		OIDCDiscoveryURL:           OIDCDiscoveryURL,
 		tokenIntrospectionEndpoint: respBody.IntrospectionEndpoint,
@@ -289,8 +293,24 @@ func (o *OAuth2) setResponseHeader(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Headers", "*")
 }
 
+// resourceURLFor returns the resource identifier to advertise for this request.
+// A client asking about the resource "https://host/datastore" requests its
+// metadata at "/.well-known/oauth-protected-resource/datastore" (RFC 9728), so
+// whatever follows the metadata path is echoed back. That way the advertised
+// resource matches the URL the client actually connects to, whichever path a
+// reverse proxy serves this server under - including the legacy "/mcp".
+func (o *OAuth2) resourceURLFor(r *http.Request) string {
+	idx := strings.Index(r.URL.Path, resourceMetadataPath)
+	if idx < 0 {
+		return o.ResourceURL
+	}
+
+	suffix := strings.TrimRight(r.URL.Path[idx+len(resourceMetadataPath):], "/")
+	return o.ResourceURL + suffix
+}
+
 // for /.well-known/oauth-protected-resource
-// and /.well-known/oauth-protected-resource/mcp
+// and its subtree, e.g. /.well-known/oauth-protected-resource/mcp
 func (o *OAuth2) HandleResourceMetadataURI(w http.ResponseWriter, r *http.Request) {
 	o.setResponseHeader(w)
 
@@ -306,7 +326,7 @@ func (o *OAuth2) HandleResourceMetadataURI(w http.ResponseWriter, r *http.Reques
 
 	var metadata = ResourceMetadata{
 		ResourceName: "CyVerse Data Store MCP server",
-		Resource:     o.McpURL,
+		Resource:     o.resourceURLFor(r),
 		AuthorizationServers: []string{
 			o.AuthorizationURL,
 		},
@@ -329,7 +349,7 @@ func (o *OAuth2) HandleResourceMetadataURI(w http.ResponseWriter, r *http.Reques
 }
 
 // for /.well-known/oauth-authorization-server
-// and /.well-known/oauth-authorization-server/mcp
+// and its subtree, e.g. /.well-known/oauth-authorization-server/mcp
 func (o *OAuth2) HandleAuthServerMetadataURI(w http.ResponseWriter, r *http.Request) {
 	o.setResponseHeader(w)
 
@@ -394,7 +414,7 @@ func (o *OAuth2) HandleAuthServerMetadataURI(w http.ResponseWriter, r *http.Requ
 }
 
 // for /.well-known/openid-configuration
-// and /.well-known/openid-configuration/mcp
+// and its subtree, e.g. /.well-known/openid-configuration/mcp
 func (o *OAuth2) HandleOIDCDiscoveryURI(w http.ResponseWriter, r *http.Request) {
 	o.setResponseHeader(w)
 
