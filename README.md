@@ -6,7 +6,7 @@ The iRODS MCP Server provides access to data in iRODS. This project contains onl
 
 The iRODS MCP Server can run on an MCP Client machine using Docker in STDIO mode.
 
-The iRODS MCP Server can also run on a dedicated server for multiple client users. In this case, the server supports both `HTTP/SSE` and `Streamable-HTTP`.
+The iRODS MCP Server can also run on a dedicated server for multiple client users. In this case, the server supports `Streamable-HTTP`.
 
 ## Run in an MCP Client Machine with Docker (with Claude Desktop)
 
@@ -97,7 +97,7 @@ irods_webdav_url: https://data.cyverse.org/dav/
 
 With this configuration, the server:  
 - Listens for incoming connections on **port 8080**  
-- Supports both **HTTP/SSE** and **Streamable-HTTP** requests  
+- Supports **Streamable-HTTP** requests  
 - Saves all logs (including debug info) to a file named `irods-mcp-server.log`  
 - Connects to iRODS host `data.cyverse.org` and port `1247`
 - Uses `anonymous` access by default
@@ -110,10 +110,9 @@ Run the iRODS MCP Server executable using the command:
 irods-mcp-server -c config.yaml
 ```
 
-Once started, the server provides two endpoints:
+Once started, the server provides endpoint:
 
-- Endpoint URL for HTTP/SSE: `http://localhost:8080/sse`
-- Endpoint URL for Streamable-HTTP service: `http://localhost:8080/mcp`
+- Endpoint URL for Streamable-HTTP service: `http://localhost:8080`
 
 ### a. Setup VS Code for Anonymous Access
 
@@ -121,14 +120,14 @@ Edit the `~/.config/Code/User/mcp.json` file.
 
 This configuration allows access only to public data located at `/<zone>/home/shared` or `/<zone>/home/public`.
 
-Replace the URL `http://localhost:8080/mcp` with the actual one where you are running the iRODS MCP Server.
+Replace the URL `http://localhost:8080` with the actual one where you are running the iRODS MCP Server.
 
 ```json
 {
     "servers": {
         "irods": {
             "type": "http",
-            "url": "http://localhost:8080/mcp"
+            "url": "http://localhost:8080"
         }
     }
 }
@@ -149,7 +148,7 @@ Edit the `~/.config/Code/User/mcp.json` file.
 
 This configuration allows access to your iRODS home directory (`/<zone>/home/<username>`) plus public data.
 
-Replace the URL `http://localhost:8080/mcp` with the actual one where you are running the iRODS MCP Server.
+Replace the URL `http://localhost:8080` with the actual one where you are running the iRODS MCP Server.
 
 Replace the key `YOUR_BASE64_KEY` with the actual one created from your iRODS credentials. Your key must come after `Basic ` (including the space).
 
@@ -158,7 +157,7 @@ Replace the key `YOUR_BASE64_KEY` with the actual one created from your iRODS cr
     "servers": {
         "irods": {
             "type": "http",
-            "url": "http://localhost:8080/mcp",
+            "url": "http://localhost:8080",
             "headers": {
 				"Authorization": "Basic YOUR_BASE64_KEY"
 			}

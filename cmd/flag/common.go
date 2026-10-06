@@ -29,7 +29,7 @@ func SetCommonFlags(command *cobra.Command) {
 	command.Flags().BoolVarP(&commonFlagValues.ShowHelp, "help", "h", false, "Display help information about available commands and options")
 
 	command.Flags().StringVarP(&commonFlagValues.ConfigPath, "config", "c", "", "Set config file (yaml)")
-	command.Flags().BoolVarP(&commonFlagValues.Remote, "remote", "r", false, "Run MCP Server as a remote server with HTTP/SSE and Streamable-HTTP")
+	command.Flags().BoolVarP(&commonFlagValues.Remote, "remote", "r", false, "Run MCP Server as a remote server with Streamable-HTTP")
 	command.Flags().BoolVarP(&commonFlagValues.Background, "background", "b", false, "Run in background mode")
 	command.Flags().BoolVarP(&commonFlagValues.Debug, "debug", "d", false, "Enable debug mode")
 	command.Flags().StringVar(&commonFlagValues.LogPath, "log_path", "", "Set log path")
