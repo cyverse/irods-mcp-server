@@ -1,5 +1,9 @@
 PKG=github.com/cyverse/irods-mcp-server
-VERSION=v$(shell jq -r .version package_info.json)
+VERSION=v0.3.1
+GOOS?=linux
+GOARCH?=$(shell go env GOARCH)
+PLATFORM?=$(GOOS)/$(GOARCH)
+PLATFORMS?=linux/amd64,linux/arm64
 GIT_COMMIT?=$(shell git rev-parse HEAD)
 BUILD_DATE?=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS?="-X '${PKG}/common.serverVersion=${VERSION}' -X '${PKG}/common.gitCommit=${GIT_COMMIT}' -X '${PKG}/common.buildDate=${BUILD_DATE}'"
@@ -26,20 +30,19 @@ USER_ID=$(shell id -u)
 .PHONY: build
 build:
 	mkdir -p bin
-	CGO_ENABLED=0 go build -ldflags=${LDFLAGS} -o bin/irods-mcp-server ./cmd/main.go
+	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags=${LDFLAGS} -o bin/irods-mcp-server ./cmd/main.go
 
 .PHONY: image
 image:
-	docker build -t $(DOCKER_IMAGE):${VERSION} -f $(DOCKERFILE) .
-	docker tag $(DOCKER_IMAGE):${VERSION} $(DOCKER_IMAGE):latest
+	docker build --platform=$(PLATFORM) --build-arg VERSION=${VERSION} --build-arg GIT_COMMIT=${GIT_COMMIT} -t $(DOCKER_IMAGE):${VERSION} -t $(DOCKER_IMAGE):latest -f $(DOCKERFILE) .
 
 .PHONY: push
-push: image
-	docker push $(DOCKER_IMAGE):${VERSION}
-	docker push $(DOCKER_IMAGE):latest
+push:
+	docker buildx build --platform=$(PLATFORMS) --push --build-arg VERSION=${VERSION} --build-arg GIT_COMMIT=${GIT_COMMIT} -t $(DOCKER_IMAGE):${VERSION} -t $(DOCKER_IMAGE):latest -f $(DOCKERFILE) .
 
 .PHONY: release
 release: build
+	rm -rf release
 	mkdir -p release
 	mkdir -p release/bin
 	cp bin/irods-mcp-server release/bin
@@ -48,7 +51,11 @@ release: build
 	cp install/irods-mcp-server.service release/install
 	cp install/README.md release/install
 	cp Makefile.release release/Makefile
-	cd release && tar zcvf ../irods-mcp-server.tar.gz *
+	cd release && tar zcvf ../irods-mcp-server-$(GOOS)-$(GOARCH).tar.gz *
+
+.PHONY: clean
+clean:
+	rm -rf bin release irods-mcp-server-*.tar.gz
 
 .PHONY: checkroot
 checkroot:

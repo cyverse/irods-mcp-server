@@ -1,21 +1,32 @@
 # iRODS MCP Server Dockerfile
-FROM golang:1.25-alpine AS builder
+
+##############################################
+# Build irods-mcp-server for the requested target platform
+##############################################
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS builder
+ARG TARGETOS
+ARG TARGETARCH
+# VERSION and GIT_COMMIT are optional. When not given, the Makefile falls back
+# to git, which is unavailable in the build context, so VERSION becomes "dev".
+ARG VERSION
+ARG GIT_COMMIT
 
 RUN apk add make git
 
 WORKDIR /app
 
 COPY go.mod go.sum ./
+RUN go mod download
 
 COPY . .
-RUN make build
+RUN GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-$(go env GOARCH)} make build
 
+##############################################
+# irods-mcp-server image
+##############################################
 FROM alpine:3.20.1
 LABEL maintainer="Illyoung Choi <iychoi@email.arizona.edu>"
 LABEL description="iRODS MCP Server"
-
-# Fix libc dependency issue in alpine
-RUN mkdir /lib64 && ln -s /lib/libc.musl-x86_64.so.1 /lib64/ld-linux-x86-64.so.2
 
 WORKDIR /app
 
