@@ -1,6 +1,6 @@
 # iRODS MCP Server
 
-The iRODS MCP Server provides access to data in iRODS. This project contains only the public, iRODS-related portions of the code for the AI Verde Data Store MCP Server.
+The iRODS MCP Server provides access to data in iRODS. This project contains only the public, iRODS-related portions of the code for the Data Store MCP Server.
 
 ## Execution Modes
 
