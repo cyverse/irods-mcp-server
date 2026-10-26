@@ -98,11 +98,6 @@ func GetIRODSFSClient(account *irodsclient_types.IRODSAccount) (*irodsclient_fs.
 	fsConfig.MetadataConnection.OperationTimeout = FilesystemTimeout
 	fsConfig.IOConnection.OperationTimeout = FilesystemTimeout
 
-	// set tcp buffer size
-	fsConfig.MetadataConnection.TcpBufferSize = GetDefaultTCPBufferSize()
-	fsConfig.IOConnection.TcpBufferSize = GetDefaultTCPBufferSize()
-
-	fsConfig.Cache.InvalidateParentEntryCacheImmediately = true
 	fsConfig.Cache.StartNewTransaction = false
 
 	return irodsclient_fs.NewFileSystem(account, fsConfig)

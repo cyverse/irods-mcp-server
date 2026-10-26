@@ -7,37 +7,13 @@ import (
 )
 
 const (
-	ClientProgramName          string                     = "irods-mcp-server"
-	FilesystemTimeout          irodsclient_types.Duration = irodsclient_types.Duration(5 * time.Minute)
-	LongFilesystemTimeout      irodsclient_types.Duration = irodsclient_types.Duration(10 * time.Minute) // exceptionally long timeout for listing dirs or users
-	transferThreadNumDefault   int                        = 5
-	tcpBufferSizeStringDefault string                     = "1MB"
-	fsPoolTimeout              time.Duration              = 10 * time.Minute
-)
+	ClientProgramName     string                     = "irods-mcp-server"
+	FilesystemTimeout     irodsclient_types.Duration = irodsclient_types.Duration(5 * time.Minute)
+	LongFilesystemTimeout irodsclient_types.Duration = irodsclient_types.Duration(10 * time.Minute) // exceptionally long timeout for listing dirs or users
+	fsPoolTimeout         time.Duration              = 10 * time.Minute
 
-const (
 	IRODSAPIPrefix          string = "irods__"
 	DefaultTreeScanMaxDepth int    = 3
 	MaxTreeScanDepth        int    = 10
 	IRODSScheme             string = "irods"
 )
-
-func GetDefaultTCPBufferSize() int {
-	size, err := ParseSize(GetDefaultTCPBufferSizeString())
-	if err != nil {
-		panic("invalid default TCP buffer size constant: " + err.Error())
-	}
-	return int(size)
-}
-
-func GetDefaultTCPBufferSizeString() string {
-	return tcpBufferSizeStringDefault
-}
-
-func GetDefaultTransferThreadNum() int {
-	return transferThreadNumDefault
-}
-
-func GetDefaultVerifyChecksum() bool {
-	return false
-}
