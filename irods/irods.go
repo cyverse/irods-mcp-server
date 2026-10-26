@@ -315,6 +315,7 @@ func (svr *IRODSMCPServer) registerTools() error {
 	svr.addTool(NewListAVUs(svr))
 	svr.addTool(NewAddAVU(svr))
 	svr.addTool(NewDeleteAVU(svr))
+	svr.addTool(NewApplyAVUOperations(svr))
 	svr.addTool(NewModifyAccess(svr))
 	svr.addTool(NewModifyAccessInheritance(svr))
 	return nil

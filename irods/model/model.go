@@ -112,6 +112,16 @@ type DeleteAVUOutput struct {
 	Units      string `json:"units,omitempty"`
 }
 
+type AVUOperationOutput struct {
+	Operation string `json:"operation"`
+	Attribute string `json:"attribute"`
+}
+
+type ApplyAVUOperationsOutput struct {
+	Path       string               `json:"path"`
+	Operations []AVUOperationOutput `json:"operations"`
+}
+
 type ModifyAccessOutput struct {
 	Path        string                                 `json:"path"`
 	UserName    string                                 `json:"user_name"`
