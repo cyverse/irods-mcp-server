@@ -1,5 +1,5 @@
 PKG=github.com/cyverse/irods-mcp-server
-VERSION=v0.3.1
+VERSION=v0.3.2
 GOOS?=linux
 GOARCH?=$(shell go env GOARCH)
 PLATFORM?=$(GOOS)/$(GOARCH)
