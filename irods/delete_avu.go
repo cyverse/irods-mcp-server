@@ -24,7 +24,7 @@ type DeleteAVUInputArgs struct {
 	ID         int64  `json:"id,omitempty"`
 	Attribute  string `json:"attribute,omitempty"`
 	Value      string `json:"value,omitempty"`
-	Unit       string `json:"unit,omitempty"`
+	Units      string `json:"units,omitempty"`
 }
 
 type DeleteAVU struct {
@@ -78,9 +78,9 @@ func (t *DeleteAVU) GetTool() *mcp.Tool {
 					Description: "The value of the AVU to delete. Default is an empty string.",
 					Default:     json.RawMessage(`""`),
 				},
-				"unit": {
+				"units": {
 					Type:        "string",
-					Description: "The unit of the AVU to delete. Default is an empty string.",
+					Description: "The units of the AVU to delete. Default is an empty string.",
 					Default:     json.RawMessage(`""`),
 				},
 			},
@@ -165,7 +165,7 @@ func (t *DeleteAVU) Handler(ctx context.Context, request *mcp.CallToolRequest) (
 	}
 
 	// Delete AVU
-	content, err := t.deleteAVU(fs, args.TargetType, args.Target, args.ID, args.Attribute, args.Value, args.Unit)
+	content, err := t.deleteAVU(fs, args.TargetType, args.Target, args.ID, args.Attribute, args.Value, args.Units)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to delete AVU from %q in %q type, attr %q", args.Target, args.TargetType, args.Attribute)
 		return irods_common.ToolErrorResult(outputErr), nil
@@ -174,20 +174,20 @@ func (t *DeleteAVU) Handler(ctx context.Context, request *mcp.CallToolRequest) (
 	return irods_common.ToolJSONResult(*content)
 }
 
-func (t *DeleteAVU) deleteAVU(fs *irodsclient_fs.FileSystem, targetType string, target string, id int64, attribute string, value string, unit string) (*model.DeleteAVUOutput, error) {
+func (t *DeleteAVU) deleteAVU(fs *irodsclient_fs.FileSystem, targetType string, target string, id int64, attribute string, value string, units string) (*model.DeleteAVUOutput, error) {
 	switch targetType {
 	case "path":
-		return t.deleteAVUFromPath(fs, target, id, attribute, value, unit)
+		return t.deleteAVUFromPath(fs, target, id, attribute, value, units)
 	case "resource":
-		return t.deleteAVUFromResource(fs, target, id, attribute, value, unit)
+		return t.deleteAVUFromResource(fs, target, id, attribute, value, units)
 	case "user":
-		return t.deleteAVUFromUser(fs, target, id, attribute, value, unit)
+		return t.deleteAVUFromUser(fs, target, id, attribute, value, units)
 	default:
 		return nil, errors.Newf("invalid target_type %q", targetType)
 	}
 }
 
-func (t *DeleteAVU) deleteAVUFromPath(fs *irodsclient_fs.FileSystem, path string, id int64, attribute string, value string, unit string) (*model.DeleteAVUOutput, error) {
+func (t *DeleteAVU) deleteAVUFromPath(fs *irodsclient_fs.FileSystem, path string, id int64, attribute string, value string, units string) (*model.DeleteAVUOutput, error) {
 	if !fs.Exists(path) {
 		return nil, errors.Newf("path %q does not exist", path)
 	}
@@ -196,7 +196,7 @@ func (t *DeleteAVU) deleteAVUFromPath(fs *irodsclient_fs.FileSystem, path string
 	if id > 0 {
 		err = fs.DeleteMetadata(path, id)
 	} else {
-		err = fs.DeleteMetadataByAVU(path, attribute, value, unit)
+		err = fs.DeleteMetadataByAVU(path, attribute, value, units)
 	}
 
 	if err != nil {
@@ -209,18 +209,18 @@ func (t *DeleteAVU) deleteAVUFromPath(fs *irodsclient_fs.FileSystem, path string
 		ID:         id,
 		Attribute:  attribute,
 		Value:      value,
-		Unit:       unit,
+		Units:      units,
 	}
 
 	return deleteAVUOutput, nil
 }
 
-func (t *DeleteAVU) deleteAVUFromResource(fs *irodsclient_fs.FileSystem, resourceName string, id int64, attribute string, value string, unit string) (*model.DeleteAVUOutput, error) {
+func (t *DeleteAVU) deleteAVUFromResource(fs *irodsclient_fs.FileSystem, resourceName string, id int64, attribute string, value string, units string) (*model.DeleteAVUOutput, error) {
 	var err error
 	if id > 0 {
 		err = fs.DeleteResourceMetadata(resourceName, id)
 	} else {
-		err = fs.DeleteResourceMetadataByAVU(resourceName, attribute, value, unit)
+		err = fs.DeleteResourceMetadataByAVU(resourceName, attribute, value, units)
 	}
 
 	if err != nil {
@@ -233,13 +233,13 @@ func (t *DeleteAVU) deleteAVUFromResource(fs *irodsclient_fs.FileSystem, resourc
 		ID:         id,
 		Attribute:  attribute,
 		Value:      value,
-		Unit:       unit,
+		Units:      units,
 	}
 
 	return deleteAVUOutput, nil
 }
 
-func (t *DeleteAVU) deleteAVUFromUser(fs *irodsclient_fs.FileSystem, userName string, id int64, attribute string, value string, unit string) (*model.DeleteAVUOutput, error) {
+func (t *DeleteAVU) deleteAVUFromUser(fs *irodsclient_fs.FileSystem, userName string, id int64, attribute string, value string, units string) (*model.DeleteAVUOutput, error) {
 	account := fs.GetAccount()
 
 	user := ""
@@ -257,7 +257,7 @@ func (t *DeleteAVU) deleteAVUFromUser(fs *irodsclient_fs.FileSystem, userName st
 	if id > 0 {
 		err = fs.DeleteUserMetadata(user, zone, id)
 	} else {
-		err = fs.DeleteUserMetadataByAVU(user, zone, attribute, value, unit)
+		err = fs.DeleteUserMetadataByAVU(user, zone, attribute, value, units)
 	}
 
 	if err != nil {
@@ -270,7 +270,7 @@ func (t *DeleteAVU) deleteAVUFromUser(fs *irodsclient_fs.FileSystem, userName st
 		ID:         id,
 		Attribute:  attribute,
 		Value:      value,
-		Unit:       unit,
+		Units:      units,
 	}
 
 	return deleteAVUOutput, nil

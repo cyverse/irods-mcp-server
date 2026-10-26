@@ -23,7 +23,7 @@ type AddAVUInputArgs struct {
 	Target     string `json:"target"`
 	Attribute  string `json:"attribute"`
 	Value      string `json:"value"`
-	Unit       string `json:"unit,omitempty"`
+	Units      string `json:"units,omitempty"`
 }
 
 type AddAVU struct {
@@ -70,9 +70,9 @@ func (t *AddAVU) GetTool() *mcp.Tool {
 					Type:        "string",
 					Description: "The value of the AVU to add.",
 				},
-				"unit": {
+				"units": {
 					Type:        "string",
-					Description: "The unit of the AVU to add. Default is an empty string.",
+					Description: "The units of the AVU to add. Default is an empty string.",
 					Default:     json.RawMessage(`""`),
 				},
 			},
@@ -141,7 +141,7 @@ func (t *AddAVU) Handler(ctx context.Context, request *mcp.CallToolRequest) (*mc
 	}
 
 	// Add AVU
-	content, err := t.addAVU(fs, args.TargetType, args.Target, args.Attribute, args.Value, args.Unit)
+	content, err := t.addAVU(fs, args.TargetType, args.Target, args.Attribute, args.Value, args.Units)
 	if err != nil {
 		outputErr := errors.Wrapf(err, "failed to add AVU to %q in %q type, attr %q", args.Target, args.TargetType, args.Attribute)
 		return irods_common.ToolErrorResult(outputErr), nil
@@ -150,25 +150,25 @@ func (t *AddAVU) Handler(ctx context.Context, request *mcp.CallToolRequest) (*mc
 	return irods_common.ToolJSONResult(*content)
 }
 
-func (t *AddAVU) addAVU(fs *irodsclient_fs.FileSystem, targetType string, target string, attribute string, value string, unit string) (*model.AddAVUOutput, error) {
+func (t *AddAVU) addAVU(fs *irodsclient_fs.FileSystem, targetType string, target string, attribute string, value string, units string) (*model.AddAVUOutput, error) {
 	switch targetType {
 	case "path":
-		return t.addAVUToPath(fs, target, attribute, value, unit)
+		return t.addAVUToPath(fs, target, attribute, value, units)
 	case "resource":
-		return t.addAVUToResource(fs, target, attribute, value, unit)
+		return t.addAVUToResource(fs, target, attribute, value, units)
 	case "user":
-		return t.addAVUToUser(fs, target, attribute, value, unit)
+		return t.addAVUToUser(fs, target, attribute, value, units)
 	default:
 		return nil, errors.Newf("invalid target_type %q", targetType)
 	}
 }
 
-func (t *AddAVU) addAVUToPath(fs *irodsclient_fs.FileSystem, path string, attribute string, value string, unit string) (*model.AddAVUOutput, error) {
+func (t *AddAVU) addAVUToPath(fs *irodsclient_fs.FileSystem, path string, attribute string, value string, units string) (*model.AddAVUOutput, error) {
 	if !fs.Exists(path) {
 		return nil, errors.Newf("path %q does not exist", path)
 	}
 
-	err := fs.AddMetadata(path, attribute, value, unit)
+	err := fs.AddMetadata(path, attribute, value, units)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to add AVU to path %q", path)
 	}
@@ -182,8 +182,8 @@ func (t *AddAVU) addAVUToPath(fs *irodsclient_fs.FileSystem, path string, attrib
 	return addAVUOutput, nil
 }
 
-func (t *AddAVU) addAVUToResource(fs *irodsclient_fs.FileSystem, resourceName string, attribute string, value string, unit string) (*model.AddAVUOutput, error) {
-	err := fs.AddResourceMetadata(resourceName, attribute, value, unit)
+func (t *AddAVU) addAVUToResource(fs *irodsclient_fs.FileSystem, resourceName string, attribute string, value string, units string) (*model.AddAVUOutput, error) {
+	err := fs.AddResourceMetadata(resourceName, attribute, value, units)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to add AVU to resource %q", resourceName)
 	}
@@ -197,7 +197,7 @@ func (t *AddAVU) addAVUToResource(fs *irodsclient_fs.FileSystem, resourceName st
 	return addAVUOutput, nil
 }
 
-func (t *AddAVU) addAVUToUser(fs *irodsclient_fs.FileSystem, userName string, attribute string, value string, unit string) (*model.AddAVUOutput, error) {
+func (t *AddAVU) addAVUToUser(fs *irodsclient_fs.FileSystem, userName string, attribute string, value string, units string) (*model.AddAVUOutput, error) {
 	account := fs.GetAccount()
 
 	user := ""
@@ -211,7 +211,7 @@ func (t *AddAVU) addAVUToUser(fs *irodsclient_fs.FileSystem, userName string, at
 		user = userName
 	}
 
-	err := fs.AddUserMetadata(user, zone, attribute, value, unit)
+	err := fs.AddUserMetadata(user, zone, attribute, value, units)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to add AVU to user %q", userName)
 	}

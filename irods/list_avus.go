@@ -224,7 +224,7 @@ func (t *ListAVUs) listAVUsFromPath(fs *irodsclient_fs.FileSystem, path string) 
 			ID:        md.AVUID,
 			Attribute: md.Name,
 			Value:     md.Value,
-			Unit:      md.Units,
+			Units:     md.Units,
 		}
 		avus = append(avus, avu)
 	}
@@ -250,7 +250,7 @@ func (t *ListAVUs) listAVUsFromResource(fs *irodsclient_fs.FileSystem, resourceN
 			ID:        md.AVUID,
 			Attribute: md.Name,
 			Value:     md.Value,
-			Unit:      md.Units,
+			Units:     md.Units,
 		}
 		avus = append(avus, avu)
 	}
@@ -289,7 +289,7 @@ func (t *ListAVUs) listAVUsFromUser(fs *irodsclient_fs.FileSystem, userName stri
 			ID:        md.AVUID,
 			Attribute: md.Name,
 			Value:     md.Value,
-			Unit:      md.Units,
+			Units:     md.Units,
 		}
 		avus = append(avus, avu)
 	}

@@ -85,7 +85,7 @@ type AVU struct {
 	ID        int64  `json:"id,omitempty"`
 	Attribute string `json:"attribute"`
 	Value     string `json:"value"`
-	Unit      string `json:"unit,omitempty"`
+	Units     string `json:"units,omitempty"`
 }
 
 type ListAVUsOutput struct {
@@ -109,7 +109,7 @@ type DeleteAVUOutput struct {
 	ID         int64  `json:"id,omitempty"`
 	Attribute  string `json:"attribute,omitempty"`
 	Value      string `json:"value,omitempty"`
-	Unit       string `json:"unit,omitempty"`
+	Units      string `json:"units,omitempty"`
 }
 
 type ModifyAccessOutput struct {
