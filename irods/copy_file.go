@@ -60,6 +60,9 @@ func (t *CopyFile) GetTool() *mcp.Tool {
 			},
 			Required: []string{"source_path", "destination_path"},
 		},
+		Annotations: &mcp.ToolAnnotations{
+			DestructiveHint: jsonschema.Ptr(true),
+		},
 	}
 }
 

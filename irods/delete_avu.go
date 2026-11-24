@@ -96,6 +96,9 @@ func (t *DeleteAVU) GetTool() *mcp.Tool {
 				},
 			*/
 		},
+		Annotations: &mcp.ToolAnnotations{
+			DestructiveHint: jsonschema.Ptr(true),
+		},
 	}
 }
 

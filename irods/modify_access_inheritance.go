@@ -66,6 +66,9 @@ func (t *ModifyAccessInheritance) GetTool() *mcp.Tool {
 			},
 			Required: []string{"path", "inherit"},
 		},
+		Annotations: &mcp.ToolAnnotations{
+			DestructiveHint: jsonschema.Ptr(true),
+		},
 	}
 }
 

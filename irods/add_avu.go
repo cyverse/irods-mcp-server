@@ -78,6 +78,9 @@ func (t *AddAVU) GetTool() *mcp.Tool {
 			},
 			Required: []string{"target_type", "target", "attribute", "value"},
 		},
+		Annotations: &mcp.ToolAnnotations{
+			DestructiveHint: jsonschema.Ptr(true),
+		},
 	}
 }
 

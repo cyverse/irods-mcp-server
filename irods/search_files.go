@@ -62,6 +62,9 @@ func (t *SearchFiles) GetTool() *mcp.Tool {
 			},
 			Required: []string{"path"},
 		},
+		Annotations: &mcp.ToolAnnotations{
+			ReadOnlyHint: true,
+		},
 	}
 }
 

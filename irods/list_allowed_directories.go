@@ -45,6 +45,10 @@ func (t *ListAllowedDirectories) GetTool() *mcp.Tool {
 			Type:       "object",
 			Properties: map[string]*jsonschema.Schema{},
 		},
+		Annotations: &mcp.ToolAnnotations{
+			ReadOnlyHint:  true,
+			OpenWorldHint: jsonschema.Ptr(false),
+		},
 	}
 }
 

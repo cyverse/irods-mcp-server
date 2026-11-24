@@ -55,6 +55,9 @@ func (t *GetTicketInfo) GetTool() *mcp.Tool {
 			},
 			Required: []string{"name"},
 		},
+		Annotations: &mcp.ToolAnnotations{
+			ReadOnlyHint: true,
+		},
 	}
 }
 

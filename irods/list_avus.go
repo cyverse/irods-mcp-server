@@ -75,6 +75,9 @@ func (t *ListAVUs) GetTool() *mcp.Tool {
 			},
 			Required: []string{"target_type", "target"},
 		},
+		Annotations: &mcp.ToolAnnotations{
+			ReadOnlyHint: true,
+		},
 	}
 }
 

@@ -59,6 +59,9 @@ func (t *MoveFile) GetTool() *mcp.Tool {
 			},
 			Required: []string{"old_path", "new_path"},
 		},
+		Annotations: &mcp.ToolAnnotations{
+			DestructiveHint: jsonschema.Ptr(true),
+		},
 	}
 }
 

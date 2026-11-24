@@ -65,6 +65,9 @@ func (t *DirectoryTree) GetTool() *mcp.Tool {
 			},
 			Required: []string{"path"},
 		},
+		Annotations: &mcp.ToolAnnotations{
+			ReadOnlyHint: true,
+		},
 	}
 }
 

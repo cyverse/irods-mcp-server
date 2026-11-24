@@ -93,6 +93,9 @@ func (t *ApplyAVUOperations) GetTool() *mcp.Tool {
 			},
 			Required: []string{"path", "operations"},
 		},
+		Annotations: &mcp.ToolAnnotations{
+			DestructiveHint: jsonschema.Ptr(true),
+		},
 	}
 }
 

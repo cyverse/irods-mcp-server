@@ -65,6 +65,9 @@ func (t *SearchFilesByAVU) GetTool() *mcp.Tool {
 			},
 			Required: []string{"attribute", "value"},
 		},
+		Annotations: &mcp.ToolAnnotations{
+			ReadOnlyHint: true,
+		},
 	}
 }
 

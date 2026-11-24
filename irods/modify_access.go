@@ -74,6 +74,9 @@ func (t *ModifyAccess) GetTool() *mcp.Tool {
 			},
 			Required: []string{"access_level", "user_or_group", "path"},
 		},
+		Annotations: &mcp.ToolAnnotations{
+			DestructiveHint: jsonschema.Ptr(true),
+		},
 	}
 }
 

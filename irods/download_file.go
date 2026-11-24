@@ -61,6 +61,9 @@ func (t *DownloadFile) GetTool() *mcp.Tool {
 			},
 			Required: []string{"irods_path", "local_path"},
 		},
+		Annotations: &mcp.ToolAnnotations{
+			ReadOnlyHint: true,
+		},
 	}
 }
 

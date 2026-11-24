@@ -54,6 +54,9 @@ func (t *DeleteFile) GetTool() *mcp.Tool {
 			},
 			Required: []string{"path"},
 		},
+		Annotations: &mcp.ToolAnnotations{
+			DestructiveHint: jsonschema.Ptr(true),
+		},
 	}
 }
 

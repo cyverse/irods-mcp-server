@@ -71,6 +71,9 @@ func (t *ListDirectory) GetTool() *mcp.Tool {
 			},
 			Required: []string{"path"},
 		},
+		Annotations: &mcp.ToolAnnotations{
+			ReadOnlyHint: true,
+		},
 	}
 }
 

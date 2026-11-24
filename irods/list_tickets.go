@@ -45,6 +45,9 @@ func (t *ListTickets) GetTool() *mcp.Tool {
 			Type:       "object",
 			Properties: map[string]*jsonschema.Schema{},
 		},
+		Annotations: &mcp.ToolAnnotations{
+			ReadOnlyHint: true,
+		},
 	}
 }
 

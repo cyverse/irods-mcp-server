@@ -68,6 +68,9 @@ func (t *UploadFile) GetTool() *mcp.Tool {
 			},
 			Required: []string{"local_path", "irods_path"},
 		},
+		Annotations: &mcp.ToolAnnotations{
+			DestructiveHint: jsonschema.Ptr(true),
+		},
 	}
 }
 

@@ -71,6 +71,9 @@ func (t *WriteFile) GetTool() *mcp.Tool {
 			},
 			Required: []string{"path", "content"},
 		},
+		Annotations: &mcp.ToolAnnotations{
+			DestructiveHint: jsonschema.Ptr(true),
+		},
 	}
 }
 
